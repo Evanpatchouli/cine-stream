@@ -1,0 +1,8 @@
+.LinkMenu {
+  text-align: left;
+}
+
+.Link:hover {
+  color: blue;
+  text-decoration: underline;
+}

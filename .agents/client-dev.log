@@ -1,0 +1,18 @@
+
+> @cine-stream/client@0.0.0 dev C:\Users\31250\Work\cine-stream\client
+> vite --host 0.0.0.0 "--" "--host" "127.0.0.1" "--port" "5174"
+
+
+  [32m[1mROLLDOWN-VITE[22m v7.2.5[39m  [2mready in [0m[1m250[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://198.18.0.1:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.1.12:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://172.17.112.1:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://172.20.240.1:[1m5173[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2m18:03:03[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.tsx, /src/pages/HallPage.tsx, /src/pages/CollectionPage.tsx, /src/pages/PlaybackPage.tsx, /src/pages/HistoryPage.tsx[22m
+[2m18:03:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/HistoryPage.tsx, /src/index.css[22m
+[2m18:03:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/SpacePage.tsx, /src/index.css[22m
+[2m18:24:05[22m [36m[1m[vite][22m[39m [32m.env changed, restarting server...[39m
+[2m18:24:05[22m [36m[1m[vite][22m[39m server restarted.

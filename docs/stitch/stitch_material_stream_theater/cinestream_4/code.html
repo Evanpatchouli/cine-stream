@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>My Space - CineStream</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#001e24",
+                        "primary": "#000666",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#001f25",
+                        "tertiary-fixed": "#a1efff",
+                        "on-tertiary-container": "#00a6bc",
+                        "on-surface": "#191c1d",
+                        "surface-tint": "#4c56af",
+                        "on-secondary-container": "#11278e",
+                        "surface-container-high": "#e7e8e9",
+                        "surface-variant": "#e1e3e4",
+                        "secondary": "#4355b9",
+                        "outline-variant": "#c6c5d4",
+                        "tertiary-fixed-dim": "#44d8f1",
+                        "primary-fixed": "#e0e0ff",
+                        "on-background": "#191c1d",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#004e59",
+                        "on-tertiary": "#ffffff",
+                        "inverse-surface": "#2e3132",
+                        "surface-container": "#edeeef",
+                        "inverse-primary": "#bdc2ff",
+                        "on-secondary-fixed": "#00105c",
+                        "outline": "#767683",
+                        "secondary-container": "#8596ff",
+                        "tertiary-container": "#00353d",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed": "#dee0ff",
+                        "primary-container": "#1a237e",
+                        "background": "#f8f9fa",
+                        "on-secondary-fixed-variant": "#293ca0",
+                        "on-error": "#ffffff",
+                        "on-surface-variant": "#454652",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed": "#000767",
+                        "on-primary-fixed-variant": "#343d96",
+                        "secondary-fixed-dim": "#bac3ff",
+                        "surface-container-highest": "#e1e3e4",
+                        "surface-bright": "#f8f9fa",
+                        "surface-container-low": "#f3f4f5",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "on-secondary": "#ffffff",
+                        "surface-dim": "#d9dadb",
+                        "surface": "#f8f9fa",
+                        "error": "#ba1a1a",
+                        "on-primary-container": "#8690ee",
+                        "inverse-on-surface": "#f0f1f2"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "element-gap": "12px",
+                        "section-gap": "32px",
+                        "gutter": "12px",
+                        "container-padding": "16px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "title-lg": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "title-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "0", "fontWeight": "600" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+                        "display-lg": ["45px", { "lineHeight": "52px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.25px", "fontWeight": "400" }],
+                        "title-lg": ["22px", { "lineHeight": "28px", "letterSpacing": "0", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "0", "fontWeight": "600" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+                        "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.15px", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface dark:bg-surface-dim shadow-sm">
+<div class="flex justify-between items-center px-container-padding h-16 w-full max-w-[600px] mx-auto">
+<button class="p-2 -ml-2 text-primary dark:text-primary-fixed-dim hover:bg-surface-variant dark:hover:bg-surface-container-high transition-colors active:scale-95 duration-150 rounded-full" id="menu-btn">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">menu</span>
+</button>
+<div class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary dark:text-primary-fixed-dim">CineStream</div>
+<button class="p-2 -mr-2 text-primary dark:text-primary-fixed-dim hover:bg-surface-variant dark:hover:bg-surface-container-high transition-colors active:scale-95 duration-150 rounded-full">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">search</span>
+</button>
+</div>
+</header>
+<!-- NavigationDrawer Overlay -->
+<div class="fixed inset-0 bg-black/40 z-[55] hidden transition-opacity duration-300 opacity-0" id="drawer-overlay"></div>
+<!-- NavigationDrawer -->
+<aside class="fixed inset-y-0 left-0 w-[80%] max-w-[480px] z-[60] bg-surface-container-low dark:bg-surface-container-lowest shadow-[Blur_8px_Opacity_4%_Y-offset_2px] transform -translate-x-full transition-transform duration-300 ease-in-out" id="drawer">
+<div class="flex flex-col h-full py-section-gap px-4">
+<h2 class="font-title-md text-title-md text-primary dark:text-primary-fixed-dim mb-6 px-4">Menu</h2>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-element-gap bg-primary/10 dark:bg-primary-fixed/10 text-primary dark:text-primary-fixed-dim rounded-full px-4 py-3 active:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-label-lg text-label-lg">My Space</span>
+</a>
+<a class="flex items-center gap-element-gap text-on-surface-variant dark:text-outline px-4 py-3 hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-all rounded-full active:opacity-80" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">history</span>
+<span class="font-label-lg text-label-lg">Watch History</span>
+</a>
+<a class="flex items-center gap-element-gap text-on-surface-variant dark:text-outline px-4 py-3 hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-all rounded-full active:opacity-80" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">bookmarks</span>
+<span class="font-label-lg text-label-lg">My Collection</span>
+</a>
+<a class="flex items-center gap-element-gap text-on-surface-variant dark:text-outline px-4 py-3 hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-all rounded-full active:opacity-80" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">theater_comedy</span>
+<span class="font-label-lg text-label-lg">Theater Hall</span>
+</a>
+</nav>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="pt-[80px] pb-section-gap px-container-padding max-w-[600px] mx-auto">
+<!-- Profile Header -->
+<section class="flex flex-col items-center mb-section-gap">
+<div class="relative w-24 h-24 mb-4">
+<img class="w-full h-full rounded-full object-cover shadow-[Blur_8px_Opacity_4%_Y-offset_2px]" data-alt="A close-up, high-quality profile portrait of a modern individual with a neutral expression. The lighting is soft and cinematic, highlighting facial features against a minimalist, slightly blurred background in cool, desaturated tones matching the light-mode UI palette. The mood is calm and professional." src="https://lh3.googleusercontent.com/aida-public/AB6AXuALLUIldpnW4wGZ1w44I_G9KxxqITPvKj0PjDhQFnr11kQMcb9Aqt0lBd9KWnf6uOh4DuiOz8xwFJ-HO-W9YFMS3OAg5ZlLVkOQcv1OwpUHFDOx7mrVUQGrLlWwDdcs-Tm4F1Y6fS0vU6mbPXxseiuPKgnZw27FMEliUseaOY8jw2ui1f-heCXfgZdPg_XcalRMhh3TWd7C5mKKUlIz7oCLZMM5HNDIH0HxdVAF2VzgVcPyFUhuEtg8qR18KzV0aHi0VqwdUOianA"/>
+<button class="absolute bottom-0 right-0 bg-primary text-on-primary p-1.5 rounded-full shadow-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</button>
+</div>
+<h1 class="font-title-lg text-title-lg text-on-surface mb-1">Alex Morgan</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">alex.morgan@example.com</p>
+<div class="flex gap-4 mt-6 w-full max-w-sm">
+<div class="flex-1 text-center bg-surface-container-low rounded-xl p-3">
+<div class="font-title-md text-title-md text-primary">142</div>
+<div class="font-label-md text-label-md text-on-surface-variant mt-1">Watched</div>
+</div>
+<div class="flex-1 text-center bg-surface-container-low rounded-xl p-3">
+<div class="font-title-md text-title-md text-primary">38</div>
+<div class="font-label-md text-label-md text-on-surface-variant mt-1">Saved</div>
+</div>
+</div>
+</section>
+<!-- Settings Links -->
+<section class="flex flex-col gap-2">
+<h3 class="font-label-lg text-label-lg text-on-surface-variant px-2 mb-2 uppercase tracking-wider">Account Settings</h3>
+<a class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl shadow-[Blur_8px_Opacity_4%_Y-offset_2px] active:scale-[0.98] transition-transform" href="#">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary">manage_accounts</span>
+<span class="font-body-lg text-body-lg text-on-surface">Personal Information</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</a>
+<a class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl shadow-[Blur_8px_Opacity_4%_Y-offset_2px] active:scale-[0.98] transition-transform" href="#">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary">payment</span>
+<span class="font-body-lg text-body-lg text-on-surface">Subscription &amp; Billing</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</a>
+<a class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl shadow-[Blur_8px_Opacity_4%_Y-offset_2px] active:scale-[0.98] transition-transform" href="#">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary">tune</span>
+<span class="font-body-lg text-body-lg text-on-surface">Playback Preferences</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</a>
+<a class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl shadow-[Blur_8px_Opacity_4%_Y-offset_2px] active:scale-[0.98] transition-transform mt-4" href="#">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-error">logout</span>
+<span class="font-body-lg text-body-lg text-error">Sign Out</span>
+</div>
+</a>
+</section>
+</main>
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const menuBtn = document.getElementById('menu-btn');
+            const drawer = document.getElementById('drawer');
+            const overlay = document.getElementById('drawer-overlay');
+
+            function toggleDrawer() {
+                const isClosed = drawer.classList.contains('-translate-x-full');
+                if (isClosed) {
+                    drawer.classList.remove('-translate-x-full');
+                    overlay.classList.remove('hidden');
+                    // Small delay to allow display:block to apply before animating opacity
+                    setTimeout(() => {
+                        overlay.classList.remove('opacity-0');
+                    }, 10);
+                } else {
+                    drawer.classList.add('-translate-x-full');
+                    overlay.classList.add('opacity-0');
+                    // Wait for opacity transition to finish before hiding
+                    setTimeout(() => {
+                        overlay.classList.add('hidden');
+                    }, 300);
+                }
+            }
+
+            menuBtn.addEventListener('click', toggleDrawer);
+            overlay.addEventListener('click', toggleDrawer);
+        });
+    </script>
+</body></html>

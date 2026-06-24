@@ -1,0 +1,7 @@
+.unimportant-a {
+  color: #cccccc;
+
+  &:hover {
+    color: grey;
+  }
+}

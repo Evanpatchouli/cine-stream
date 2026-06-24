@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CineStream - Theater Hall</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#001e24",
+                        "primary": "#000666",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#001f25",
+                        "tertiary-fixed": "#a1efff",
+                        "on-tertiary-container": "#00a6bc",
+                        "on-surface": "#191c1d",
+                        "surface-tint": "#4c56af",
+                        "on-secondary-container": "#11278e",
+                        "surface-container-high": "#e7e8e9",
+                        "surface-variant": "#e1e3e4",
+                        "secondary": "#4355b9",
+                        "outline-variant": "#c6c5d4",
+                        "tertiary-fixed-dim": "#44d8f1",
+                        "primary-fixed": "#e0e0ff",
+                        "on-background": "#191c1d",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#004e59",
+                        "on-tertiary": "#ffffff",
+                        "inverse-surface": "#2e3132",
+                        "surface-container": "#edeeef",
+                        "inverse-primary": "#bdc2ff",
+                        "on-secondary-fixed": "#00105c",
+                        "outline": "#767683",
+                        "secondary-container": "#8596ff",
+                        "tertiary-container": "#00353d",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed": "#dee0ff",
+                        "primary-container": "#1a237e",
+                        "background": "#f8f9fa",
+                        "on-secondary-fixed-variant": "#293ca0",
+                        "on-error": "#ffffff",
+                        "on-surface-variant": "#454652",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed": "#000767",
+                        "on-primary-fixed-variant": "#343d96",
+                        "secondary-fixed-dim": "#bac3ff",
+                        "surface-container-highest": "#e1e3e4",
+                        "surface-bright": "#f8f9fa",
+                        "surface-container-low": "#f3f4f5",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "on-secondary": "#ffffff",
+                        "surface-dim": "#d9dadb",
+                        "surface": "#f8f9fa",
+                        "error": "#ba1a1a",
+                        "on-primary-container": "#8690ee",
+                        "inverse-on-surface": "#f0f1f2"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "element-gap": "12px",
+                        "section-gap": "32px",
+                        "gutter": "12px",
+                        "container-padding": "16px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "title-lg": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "title-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "0", "fontWeight": "600" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+                        "display-lg": ["45px", { "lineHeight": "52px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.25px", "fontWeight": "400" }],
+                        "title-lg": ["22px", { "lineHeight": "28px", "letterSpacing": "0", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "0", "fontWeight": "600" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+                        "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.15px", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+            -webkit-font-smoothing: antialiased;
+        }
+        .scrim {
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+        /* Custom scrollbar for horizontal lists */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background relative min-h-screen pb-10 flex flex-col md:items-center">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface dark:bg-surface-dim shadow-sm flex justify-between items-center px-container-padding h-16 max-w-[600px] mx-auto transition-all duration-300">
+<button aria-label="Open menu" class="p-2 rounded-full hover:bg-surface-variant dark:hover:bg-surface-container-high transition-colors active:scale-95 duration-150 text-on-surface-variant dark:text-outline" id="menu-btn">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary dark:text-primary-fixed-dim">CineStream</h1>
+<button aria-label="Search" class="p-2 rounded-full hover:bg-surface-variant dark:hover:bg-surface-container-high transition-colors active:scale-95 duration-150 text-on-surface-variant dark:text-outline">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+</header>
+<!-- Navigation Drawer Scrim -->
+<div class="fixed inset-0 scrim z-[55] opacity-0 pointer-events-none transition-opacity duration-300" id="drawer-scrim"></div>
+<!-- Navigation Drawer -->
+<nav class="fixed inset-y-0 left-0 w-[80%] max-w-[480px] z-[60] bg-surface-container-low dark:bg-surface-container-lowest shadow-[Blur_8px_Opacity_4%_Y-offset_2px] flex flex-col h-full py-section-gap px-4 transform -translate-x-full transition-transform duration-300 ease-in-out" id="nav-drawer">
+<div class="mb-8 px-4">
+<h2 class="font-title-lg text-title-lg text-primary dark:text-primary-fixed-dim mb-4">Menu</h2>
+</div>
+<ul class="flex flex-col gap-2 flex-grow font-title-md text-title-md">
+<li>
+<a class="flex items-center gap-element-gap text-on-surface-variant dark:text-outline px-4 py-3 rounded-full hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+                    My Space
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-element-gap text-on-surface-variant dark:text-outline px-4 py-3 rounded-full hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+                    Watch History
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-element-gap text-on-surface-variant dark:text-outline px-4 py-3 rounded-full hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined" data-icon="bookmarks">bookmarks</span>
+                    My Collection
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-element-gap bg-primary/10 dark:bg-primary-fixed/10 text-primary dark:text-primary-fixed-dim rounded-full px-4 py-3 hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined" data-icon="theater_comedy" data-weight="fill" style="font-variation-settings: 'FILL' 1;">theater_comedy</span>
+                    Theater Hall
+                </a>
+</li>
+</ul>
+<div class="mt-auto px-4">
+<button class="w-full py-3 flex items-center justify-center gap-2 text-on-surface-variant font-label-lg text-label-lg rounded-full hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                Settings
+            </button>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="w-full max-w-[600px] pt-20 px-container-padding flex-grow flex flex-col gap-section-gap">
+<!-- Search Bar (Filled MD3 Style) -->
+<div class="w-full relative group">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline" data-icon="search">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-3 bg-[#F1F3F4] dark:bg-surface-container-highest border-b-2 border-transparent focus:border-primary dark:focus:border-primary-fixed-dim rounded-t-DEFAULT focus:ring-0 text-on-surface font-body-lg text-body-lg transition-colors placeholder:text-outline" placeholder="Search shows, genres, actors..." type="text"/>
+<div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+<button aria-label="Voice Search" class="text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="mic">mic</span>
+</button>
+</div>
+</div>
+<!-- Filter Chips (Genre) -->
+<div class="flex overflow-x-auto hide-scrollbar gap-2 pb-2 -mx-container-padding px-container-padding w-[calc(100%+32px)]">
+<button class="flex-shrink-0 px-4 py-1.5 rounded-full border border-transparent bg-primary text-white font-label-md text-label-md transition-colors shadow-sm">All</button>
+<button class="flex-shrink-0 px-4 py-1.5 rounded-full border border-outline-variant text-on-surface-variant font-label-md text-label-md hover:bg-surface-variant transition-colors">Drama</button>
+<button class="flex-shrink-0 px-4 py-1.5 rounded-full border border-outline-variant text-on-surface-variant font-label-md text-label-md hover:bg-surface-variant transition-colors">Thriller</button>
+<button class="flex-shrink-0 px-4 py-1.5 rounded-full border border-outline-variant text-on-surface-variant font-label-md text-label-md hover:bg-surface-variant transition-colors">Comedy</button>
+<button class="flex-shrink-0 px-4 py-1.5 rounded-full border border-outline-variant text-on-surface-variant font-label-md text-label-md hover:bg-surface-variant transition-colors">Sci-Fi</button>
+<button class="flex-shrink-0 px-4 py-1.5 rounded-full border border-outline-variant text-on-surface-variant font-label-md text-label-md hover:bg-surface-variant transition-colors">Romance</button>
+</div>
+<!-- Trending Section -->
+<section>
+<div class="flex justify-between items-end mb-4">
+<h2 class="font-title-lg text-title-lg text-on-surface">Trending Now</h2>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<!-- Movie Card 1 -->
+<article class="flex flex-col gap-2 group cursor-pointer">
+<div class="relative w-full aspect-[2/3] rounded-lg overflow-hidden bg-surface-variant shadow-[Blur_8px_Opacity_4%_Y-offset_2px] group-hover:shadow-[Blur_12px_Opacity_8%_Y-offset_4px] transition-shadow duration-300">
+<img alt="Show Poster" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="A highly detailed movie poster for a modern dramatic thriller. The scene features a solitary figure silhouetted against a rainy, neon-lit city street at night. The lighting is moody, cinematic, and low-key, emphasizing deep shadows and vibrant reflections. The overall aesthetic is gritty yet polished, fitting a premium streaming platform's light-mode UI context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9jI28oO-UsZTGZho3WRMuSUkF3fXjCKQZyYj2Xii6YJT_7XCxSAA2bX0oPzDSBV76u27SeD8liJnrkT7DK_nQUscU91BnCkfxjsYtIF4fBj898ODIZssrotCOs5VB0G2hIAzR02pd5Ii-L5l25Nvo3U3Dg5MbwrBMzZOH9fqPbvfO8SbLeej8cha8YsuEHdNXchNtnHWFPGfIqmnQIbzMs7YNAlxwG1vVrh--oHCr5nfmdUi8H0Y61oMtR4lA2WREGPkhnjnE8g"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-2">
+<button class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center ml-auto">
+<span class="material-symbols-outlined text-[18px]" data-icon="play_arrow" data-weight="fill" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+</div>
+</div>
+<div>
+<h3 class="font-title-md text-title-md text-on-surface line-clamp-1">Neon Echoes</h3>
+<p class="font-label-md text-label-md text-on-surface-variant mt-1">Thriller • 2024</p>
+</div>
+</article>
+<!-- Movie Card 2 -->
+<article class="flex flex-col gap-2 group cursor-pointer">
+<div class="relative w-full aspect-[2/3] rounded-lg overflow-hidden bg-surface-variant shadow-[Blur_8px_Opacity_4%_Y-offset_2px] group-hover:shadow-[Blur_12px_Opacity_8%_Y-offset_4px] transition-shadow duration-300">
+<img alt="Show Poster" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="A highly detailed, cinematic movie poster for a sophisticated historical drama. The image shows an elegant, dimly lit drawing room with rich mahogany furniture and velvet drapes. Soft, golden hour light streams through a tall window, illuminating a mysterious letter resting on an antique desk. The aesthetic is luxurious, calm, and tailored for a high-end mobile video streaming app." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFXc38nB8tCHnsfOWe2Nlmo9CkIfUU85BpWzVqzOphLudJcTL6cV2L6km0_Gd0sbQJt9rslTiZx3yaDuxX1cmvq4ByZrRO7S-HbSd6eJvJoDu8xFGMx8HLuJ8hGjpSrCpbxo_KsKSD8vS20zDWVnQ9ey0TAqPJX76_9UCfJeOH1XUzEmW8RecmhnZfHbip7Qrrb7DkOdvM3G9Y7cL-duI5jR1LeolGBoZTB0kpOm_s0lR_R5WGoUZzXUJ8d4-GwOBHCS6Gs-ypuw"/>
+<div class="absolute top-2 left-2 px-2 py-0.5 bg-error text-on-error font-label-md text-[10px] rounded-sm font-bold uppercase tracking-wider">New Episode</div>
+</div>
+<div>
+<h3 class="font-title-md text-title-md text-on-surface line-clamp-1">The Gilded Secret</h3>
+<p class="font-label-md text-label-md text-on-surface-variant mt-1">Drama • Season 2</p>
+</div>
+</article>
+</div>
+</section>
+<!-- Continue Watching Section (Horizontal Scroll) -->
+<section class="-mx-container-padding px-container-padding w-[calc(100%+32px)]">
+<h2 class="font-title-lg text-title-lg text-on-surface mb-4">Continue Watching</h2>
+<div class="flex overflow-x-auto hide-scrollbar gap-4 pb-4">
+<!-- Continue Card 1 (16:9 ratio) -->
+<article class="flex-shrink-0 w-[240px] flex flex-col gap-2 group cursor-pointer">
+<div class="relative w-full aspect-video rounded-lg overflow-hidden bg-surface-variant shadow-[Blur_8px_Opacity_4%_Y-offset_2px]">
+<img alt="Video Thumbnail" class="w-full h-full object-cover" data-alt="A high-resolution, wide-aspect still from a sleek sci-fi series. The scene depicts a sprawling, futuristic white laboratory bathed in sterile, bright light. A researcher in a minimalist uniform is examining a glowing blue artifact. The mood is tense and intellectual, fitting perfectly within a modern minimalist streaming interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdWyR8EP1cM8gXaMdDwXYqfkWFsLKXwgaM7O18nO8jG_SzDvkkrUTkUloIgZ4e5pX8o4vDIeghPX4fX1QY3GjrRP1gev1AYqHWgGx42ix8xWhh7e_lADj0-g_4QPbCOG7GDlfeoV0itf_Ln8aCH4hh2OXcUwsiUzZbsZp1rSp3VS5yEPn2H6oj9PgzmKPGUx7SA94p-IilDOa2EOWPoUgy0HraiVo9D41yp10qLaF126tLYuvqjdAKZ6R9shWyd47SIn0kcnsFOw"/>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-surface-variant">
+<div class="h-full bg-primary" style="width: 65%;"></div>
+</div>
+<div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+<span class="material-symbols-outlined text-white text-[32px]" data-icon="play_circle">play_circle</span>
+</div>
+</div>
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-label-lg text-label-lg text-on-surface line-clamp-1">Quantum Rift - S1 E4</h3>
+<p class="font-body-md text-body-md text-on-surface-variant text-[12px] mt-0.5">35m remaining</p>
+</div>
+</div>
+</article>
+<!-- Continue Card 2 (16:9 ratio) -->
+<article class="flex-shrink-0 w-[240px] flex flex-col gap-2 group cursor-pointer">
+<div class="relative w-full aspect-video rounded-lg overflow-hidden bg-surface-variant shadow-[Blur_8px_Opacity_4%_Y-offset_2px]">
+<img alt="Video Thumbnail" class="w-full h-full object-cover" data-alt="A stunning 16:9 video thumbnail for an acclaimed nature documentary. The image captures a breathtaking, sweeping aerial view of a lush green river valley surrounded by mist-covered mountains at dawn. The lighting is soft and natural, evoking a sense of calm and professional discovery suitable for a premium mobile platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuPuXRz_4M_nNCE_n3ZyrJ8bL5TFk2IKz0RDd6ysPeUtMcqorAgsWapdzzpF5DY3IPtBwD7OEeO7CQOCPTqLfDeDYpHnneT2BbhrJinpVonrGZLIQ_fkHedFEgYlMc5z_Cc4J4m9RAxgxrQiBXtBt8xS2PLveyHBtUzAey9pmNJzzNfKtE1UAQqNEMBu45myGoJuhALblpI83u94oL6gRp4g3toMSYXVVCy8sgRqzRV4vekslqzuXG1LybA9TPNidXna5_10jNgA"/>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-surface-variant">
+<div class="h-full bg-primary" style="width: 15%;"></div>
+</div>
+</div>
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-label-lg text-label-lg text-on-surface line-clamp-1">Earth's Edge - Forests</h3>
+<p class="font-body-md text-body-md text-on-surface-variant text-[12px] mt-0.5">1h 10m remaining</p>
+</div>
+</div>
+</article>
+</div>
+</section>
+<!-- Recommended Bento Grid -->
+<section>
+<h2 class="font-title-lg text-title-lg text-on-surface mb-4">Curated for You</h2>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-4 auto-rows-[160px]">
+<!-- Large Highlight Card (Span 2 cols, 2 rows) -->
+<div class="col-span-2 row-span-2 relative rounded-xl overflow-hidden shadow-[Blur_8px_Opacity_4%_Y-offset_2px] group cursor-pointer">
+<img alt="Featured Show" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="A highly detailed, visually striking promotional image for a fantasy epic. The scene features a colossal, ancient stone gateway partially overgrown with vibrant, emerald-green vines, set against a bright, clear blue sky. A lone, small figure stands before it, looking up in awe. The composition is dramatic, utilizing heavy contrast and bright colors to draw the eye within a light-themed UI canvas." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhqfRU3YLoJ_uEEuLAFD1RDtNDsUg7Wxds0K6m4WvZQYVYGC-WZEm9ZPAk-uQT8AEX2zd2dMBsQ8p3l7VYCd1sCjkH7WXfd24L4ik8EKHxgmefsbsHQET1YRS6nMTEEaw8VrMwFAYH4erDETwj1SxJvZA96AyQsF2uhzOx_BAM_k-YJh6DNZsnczr4dtFneNNkC4Az02_jbpZfpiBAmzppxt12iq0mf0DrCmRzgsv1HL-nEJYFu4x1yxIubAMimxoGX0PKdA5FHQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-4">
+<span class="px-2 py-1 bg-white/20 backdrop-blur-md rounded text-white font-label-md text-[10px] w-max mb-2">Originals</span>
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-white leading-tight mb-1">The Lost Gates</h3>
+<p class="font-body-md text-body-md text-surface-container-low line-clamp-2">An epic journey begins when an ancient portal is discovered beneath the modern city.</p>
+</div>
+</div>
+<!-- Small Square Card 1 -->
+<div class="relative rounded-xl overflow-hidden shadow-[Blur_8px_Opacity_4%_Y-offset_2px] group cursor-pointer bg-surface-container">
+<img alt="Show Poster" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="A clean, minimalist portrait poster for an indie comedy. The image shows a quirky coffee cup sitting on a bright yellow table with a pair of oversized, colorful glasses resting beside it. The lighting is high-key and cheerful, perfectly aligning with a modern, uncluttered UI design aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCCh5JUYSb9bTyui4JOnH5fp-DTBpLIWu_K9loQ6ASwb1TNV7QTHdNHURoN_LrLQXn96DlivVScAwWHoPJaLVYzHbBXpRYJdIYk5sPwG0fOvuraI42FLkx151ha4nmzXYT8Pnly4mHTEkh0H80OIno71-IiDTkRdrQIZVoOiWL1q2WFfp_Vp9XREUlTMxEsxMMMCDPusozWZWvlLCl2XSKr5wjARxbQfluLzkq8Hp4Eqr0STo6vSJy7VoSK_4c9tk7jVMKgU09HLA"/>
+<div class="absolute bottom-0 w-full p-2 bg-gradient-to-t from-black/70 to-transparent">
+<h4 class="font-label-lg text-label-lg text-white truncate">Morning Brew</h4>
+</div>
+</div>
+<!-- Small Square Card 2 -->
+<div class="relative rounded-xl overflow-hidden shadow-[Blur_8px_Opacity_4%_Y-offset_2px] group cursor-pointer bg-surface-container">
+<img alt="Show Poster" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="A dynamic, action-oriented poster for a cyber-punk animated series. The visual features intense, glowing neon magenta and cyan lines streaking across a dark, abstract background, hinting at high speed. The aesthetic is energetic yet refined, ensuring it doesn't clutter the overall light-mode interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAPL2ruh03RIRQWQjkXsFepvkI9rByKg7MJKqhzqvhQnhIDZrspIwHfUD0XdZ4DVPLGiPWH85mE8wibI0LWOYaREtZw3K1msC9_wn27zqgW0OKt_XDevvoDekbCeOWse2N2Ti8ULFiANbP1yuvTGDOKdnEBkZRsjSMcPs1Q2jyyMuNFo-MYKypozfROQL7KzZyxBt17UUkM6Ut-8Qr1ZyArf_JESxrPnvVmp7vJSwfWVMYob8dqSzeKY6ZUqCEWrHJ-QucseTU0g"/>
+<div class="absolute bottom-0 w-full p-2 bg-gradient-to-t from-black/70 to-transparent">
+<h4 class="font-label-lg text-label-lg text-white truncate">Velocity</h4>
+</div>
+</div>
+</div>
+</section>
+</main>
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const menuBtn = document.getElementById('menu-btn');
+            const drawer = document.getElementById('nav-drawer');
+            const scrim = document.getElementById('drawer-scrim');
+            let isDrawerOpen = false;
+
+            const toggleDrawer = () => {
+                isDrawerOpen = !isDrawerOpen;
+                if (isDrawerOpen) {
+                    drawer.classList.remove('-translate-x-full');
+                    scrim.classList.remove('opacity-0', 'pointer-events-none');
+                    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+                } else {
+                    drawer.classList.add('-translate-x-full');
+                    scrim.classList.add('opacity-0', 'pointer-events-none');
+                    document.body.style.overflow = '';
+                }
+            };
+
+            menuBtn.addEventListener('click', toggleDrawer);
+            scrim.addEventListener('click', toggleDrawer);
+
+            // Add simple scroll effect to AppBar
+            const appbar = document.querySelector('header');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 10) {
+                    appbar.classList.add('shadow-md');
+                    appbar.classList.remove('shadow-sm');
+                } else {
+                    appbar.classList.add('shadow-sm');
+                    appbar.classList.remove('shadow-md');
+                }
+            });
+        });
+    </script>
+</body></html>

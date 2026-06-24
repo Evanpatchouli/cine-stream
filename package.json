@@ -1,0 +1,17 @@
+{
+  "name": "cine-stream",
+  "private": true,
+  "scripts": {
+    "dev:common": "pnpm --filter @cine-stream/common build:watch",
+    "dev:admin": "pnpm --filter @cine-stream/admin dev",
+    "dev:client": "pnpm --filter @cine-stream/client dev",
+    "dev:mongo": "docker compose -f docker-compose.dev.yml up -d mongodb",
+    "dev:server": "pnpm --filter @cine-stream/server start:dev",
+    "build": "pnpm --filter @cine-stream/common build && pnpm --filter @cine-stream/admin build && pnpm --filter @cine-stream/client build && pnpm --filter @cine-stream/server build"
+  },
+  "pnpm": {
+    "overrides": {
+      "vite": "npm:rolldown-vite@7.2.5"
+    }
+  }
+}

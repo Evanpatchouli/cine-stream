@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CineStream - Watch History</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tertiary": "#001e24",
+                        "primary": "#000666",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#001f25",
+                        "tertiary-fixed": "#a1efff",
+                        "on-tertiary-container": "#00a6bc",
+                        "on-surface": "#191c1d",
+                        "surface-tint": "#4c56af",
+                        "on-secondary-container": "#11278e",
+                        "surface-container-high": "#e7e8e9",
+                        "surface-variant": "#e1e3e4",
+                        "secondary": "#4355b9",
+                        "outline-variant": "#c6c5d4",
+                        "tertiary-fixed-dim": "#44d8f1",
+                        "primary-fixed": "#e0e0ff",
+                        "on-background": "#191c1d",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#004e59",
+                        "on-tertiary": "#ffffff",
+                        "inverse-surface": "#2e3132",
+                        "surface-container": "#edeeef",
+                        "inverse-primary": "#bdc2ff",
+                        "on-secondary-fixed": "#00105c",
+                        "outline": "#767683",
+                        "secondary-container": "#8596ff",
+                        "tertiary-container": "#00353d",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed": "#dee0ff",
+                        "primary-container": "#1a237e",
+                        "background": "#f8f9fa",
+                        "on-secondary-fixed-variant": "#293ca0",
+                        "on-error": "#ffffff",
+                        "on-surface-variant": "#454652",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed": "#000767",
+                        "on-primary-fixed-variant": "#343d96",
+                        "secondary-fixed-dim": "#bac3ff",
+                        "surface-container-highest": "#e1e3e4",
+                        "surface-bright": "#f8f9fa",
+                        "surface-container-low": "#f3f4f5",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "on-secondary": "#ffffff",
+                        "surface-dim": "#d9dadb",
+                        "surface": "#f8f9fa",
+                        "error": "#ba1a1a",
+                        "on-primary-container": "#8690ee",
+                        "inverse-on-surface": "#f0f1f2"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "element-gap": "12px",
+                        "section-gap": "32px",
+                        "gutter": "12px",
+                        "container-padding": "16px",
+                        "base": "8px"
+                    },
+                    fontFamily: {
+                        "headline-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "title-lg": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "title-md": ["Inter"]
+                    },
+                    fontSize: {
+                        "headline-lg": ["32px", { lineHeight: "40px", letterSpacing: "0", fontWeight: "600" }],
+                        "label-md": ["12px", { lineHeight: "16px", letterSpacing: "0.5px", fontWeight: "500" }],
+                        "display-lg": ["45px", { lineHeight: "52px", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "body-lg": ["16px", { lineHeight: "24px", letterSpacing: "0.5px", fontWeight: "400" }],
+                        "body-md": ["14px", { lineHeight: "20px", letterSpacing: "0.25px", fontWeight: "400" }],
+                        "title-lg": ["22px", { lineHeight: "28px", letterSpacing: "0", fontWeight: "500" }],
+                        "headline-lg-mobile": ["24px", { lineHeight: "32px", letterSpacing: "0", fontWeight: "600" }],
+                        "label-lg": ["14px", { lineHeight: "20px", letterSpacing: "0.1px", fontWeight: "500" }],
+                        "title-md": ["16px", { lineHeight: "24px", letterSpacing: "0.15px", fontWeight: "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #f8f9fa; /* background */
+            color: #191c1d; /* on-background */
+        }
+        
+        /* Drawer animation */
+        #drawer-scrim.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #drawer-panel.active {
+            transform: translateX(0);
+        }
+        
+        .history-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .history-card:active {
+            transform: scale(0.98);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        
+        /* Progress bar */
+        .progress-bar {
+            height: 4px;
+            background-color: #e1e3e4; /* surface-variant */
+            border-radius: 9999px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #000666; /* primary */
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md min-h-screen pb-section-gap">
+<!-- Navigation Drawer Scrim -->
+<div class="fixed inset-0 bg-black/40 z-[50] opacity-0 pointer-events-none transition-opacity duration-300" id="drawer-scrim" onclick="toggleDrawer()"></div>
+<!-- Navigation Drawer Panel -->
+<nav class="fixed inset-y-0 left-0 w-[80%] max-w-[480px] z-[60] bg-surface-container-low shadow-[Blur_8px_Opacity_4%_Y-offset_2px] flex flex-col h-full py-section-gap px-4 transform -translate-x-full transition-transform duration-300 ease-in-out" id="drawer-panel">
+<div class="mb-section-gap px-4">
+<span class="font-headline-lg-mobile text-headline-lg-mobile text-primary font-bold">CineStream</span>
+</div>
+<div class="flex flex-col gap-2">
+<a class="flex items-center gap-element-gap text-on-surface-variant px-4 py-3 hover:bg-surface-variant transition-all active:opacity-80 rounded-full" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-title-md text-title-md">My Space</span>
+</a>
+<a class="flex items-center gap-element-gap bg-primary/10 text-primary rounded-full px-4 py-3 hover:bg-surface-variant transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">history</span>
+<span class="font-title-md text-title-md font-medium">Watch History</span>
+</a>
+<a class="flex items-center gap-element-gap text-on-surface-variant px-4 py-3 hover:bg-surface-variant transition-all active:opacity-80 rounded-full" href="#">
+<span class="material-symbols-outlined">bookmarks</span>
+<span class="font-title-md text-title-md">My Collection</span>
+</a>
+<a class="flex items-center gap-element-gap text-on-surface-variant px-4 py-3 hover:bg-surface-variant transition-all active:opacity-80 rounded-full" href="#">
+<span class="material-symbols-outlined">theater_comedy</span>
+<span class="font-title-md text-title-md">Theater Hall</span>
+</a>
+</div>
+</nav>
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-40 bg-surface shadow-sm">
+<div class="flex justify-between items-center px-container-padding h-16 w-full max-w-[600px] mx-auto">
+<button class="text-on-surface-variant hover:bg-surface-variant p-2 rounded-full transition-colors active:scale-95 duration-150" onclick="toggleDrawer()">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<span class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary">CineStream</span>
+<button class="text-on-surface-variant hover:bg-surface-variant p-2 rounded-full transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined">search</span>
+</button>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="pt-24 px-container-padding max-w-[600px] mx-auto flex flex-col gap-section-gap">
+<section>
+<h1 class="font-title-lg text-title-lg text-on-surface mb-element-gap font-medium">Recently Watched</h1>
+<div class="flex flex-col gap-4">
+<!-- History Item 1 -->
+<div class="history-card bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex cursor-pointer">
+<div class="w-32 h-[72px] shrink-0 relative bg-surface-variant">
+<img class="w-full h-full object-cover" data-alt="A cinematic wide shot from a modern political thriller drama. Two figures stand in a dimly lit, high-end corporate boardroom with floor-to-ceiling windows overlooking a neon-lit city at night. The lighting is cool, moody, and highly professional, utilizing deep shadows and crisp blue highlights. The aesthetic reflects a premium, high-budget streaming series." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBX55-ttD7W00fk_zzA4KXOpFHTfIZ51CeSwAExkb652lHsf_OkB3Bl0enSLeQjGZynbRAu264-5yYQ-4P0zMurBC3AN_oURoGOxjqIGMGslVUFLYS_zO-0RiIPbK2Bq64YwzFTgfl-wqwMmvckOU_KzoGqQt0BIPdbn9ecwFoHKkCYA0DvAw9gmDvykMVElmDkvJpNHqQXVMahFE0JaKi0aK7fABZV1CCNkrlQDF9AF5jUD7i-jpmc1uPpiorJKPJazTrmNsvlhg"/>
+<div class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1 rounded backdrop-blur-sm">45:12</div>
+<div class="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white text-3xl" style="font-variation-settings: 'FILL' 1;">play_circle</span>
+</div>
+</div>
+<div class="p-3 flex flex-col justify-center flex-grow">
+<h2 class="font-title-md text-title-md text-on-surface line-clamp-1">The Capital's Shadow</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-0.5">S2 E4 • "The Vote"</p>
+<div class="progress-bar w-full">
+<div class="progress-fill" style="width: 75%;"></div>
+</div>
+</div>
+<button class="p-3 self-center text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<!-- History Item 2 -->
+<div class="history-card bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex cursor-pointer">
+<div class="w-32 h-[72px] shrink-0 relative bg-surface-variant">
+<img class="w-full h-full object-cover" data-alt="A beautifully composed shot from a romantic period drama. A close-up profile of a young woman in elegant late 19th-century attire, standing near a sunlit window with gossamer curtains. The lighting is soft, warm, and highly stylized, creating a dreamy, nostalgic atmosphere with a shallow depth of field. High-end cinematic production quality." src="https://lh3.googleusercontent.com/aida-public/AB6AXuADVxH9Vww9crERU4HqLdWbfesx4qydWsb6RMMo3Vl83DtX5aRFD7M-w_XFtSQd65fELS9Lk_n9A40SIaS9opXjhT9V5TKwmNifSKo_zWPsHSEe48VOqyQALexYmjDPpk5eybAI8gHIvZTUDNKs86z19OIVitmM1qNKtVC4JjT0FJSignIA_f61cbA6LI8t2tL-n56EWygcEWaJkTAgT0nW1W_lUBQ-zjshzc3zxYBkaJiXXB-ElXP9FvbDbodUBz9W60M_7Spvng"/>
+<div class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1 rounded backdrop-blur-sm">12:05</div>
+<div class="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white text-3xl" style="font-variation-settings: 'FILL' 1;">play_circle</span>
+</div>
+</div>
+<div class="p-3 flex flex-col justify-center flex-grow">
+<h2 class="font-title-md text-title-md text-on-surface line-clamp-1">Whispers in the Estate</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-0.5">S1 E1 • "Arrival"</p>
+<div class="progress-bar w-full">
+<div class="progress-fill" style="width: 20%;"></div>
+</div>
+</div>
+<button class="p-3 self-center text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<!-- History Item 3 -->
+<div class="history-card bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex cursor-pointer">
+<div class="w-32 h-[72px] shrink-0 relative bg-surface-variant">
+<img class="w-full h-full object-cover" data-alt="An intense action shot from a sci-fi action series. A futuristic urban street scene filled with neon rain. A lone figure in high-tech armor crouches behind a glowing barrier. The color palette is dominated by stark cyan and magenta, with high contrast lighting and sharp focus. The scene screams premium digital streaming content." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBZ7mNtV8MP_PT4jOoSlqUlqhDRVRS_RJXzQn6h6XGHDysTToAzFP8l3gDhrrIJKT5Bawm_nDXLG3JyXJmiKFSOWNj8t4IN4wTN9SsArzVcJN_Rg_Oi0GG9f_KuBb6UfC9ywlo8MsTOYrR1Vwhi5RyYGv2uFzdxwQLSsOlCVooYhw74QOPUh6sqA-1JwN9RZj-cGg0JezHDxmj25vJLOALO0KAjBxcVH7FC-3f1hy5Bz4RPeWdlxSejnBQzjiwh_OKFq098W3d2vw"/>
+<div class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1 rounded backdrop-blur-sm">Finished</div>
+<div class="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white text-3xl" style="font-variation-settings: 'FILL' 1;">replay</span>
+</div>
+</div>
+<div class="p-3 flex flex-col justify-center flex-grow">
+<h2 class="font-title-md text-title-md text-on-surface line-clamp-1">Neon Drift</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-0.5">S3 E10 • "Finale"</p>
+<div class="progress-bar w-full">
+<div class="progress-fill" style="width: 100%;"></div>
+</div>
+</div>
+<button class="p-3 self-center text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<!-- History Item 4 -->
+<div class="history-card bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex cursor-pointer opacity-70">
+<div class="w-32 h-[72px] shrink-0 relative bg-surface-variant">
+<img class="w-full h-full object-cover" data-alt="A quiet, melancholic scene from a slice-of-life indie drama. A small, warmly lit cafe interior viewed through a rain-streaked window. A single cup of coffee sits on a wooden table. The lighting is naturalistic and muted, emphasizing greys, browns, and soft yellows. The aesthetic is understated and beautifully mundane, typical of an artistic film." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCCRGm8yfH9yt8dB9A9dYvixV1ajcO__Hywuehi1Kg3smuSMMe-KBhuJGDkgWEcHmaTOyRgDKDzKiMKqf33KRW_weqyzs7IRdKYF78-G0Se7C5HqL8QAFepz2tidrVMf0-dfu59XmtBziuxiybp2WmfdDT124zEjXJys5K3Jth0rsW-cwsLoJxdSWnXP1LfN1vfjcxfW1AXqrEDCRAThym7BjR4yk0iMP0zaGM9YC2y4OKiBhNsN-D4GiWWbGv8dBCKE6fQwIjsqg"/>
+</div>
+<div class="p-3 flex flex-col justify-center flex-grow">
+<h2 class="font-title-md text-title-md text-on-surface line-clamp-1">Coffee &amp; Rain</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-0.5">Movie</p>
+<div class="progress-bar w-full">
+<div class="progress-fill" style="width: 5%;"></div>
+</div>
+</div>
+<button class="p-3 self-center text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<div class="mt-8 flex justify-center">
+<button class="border border-outline-variant text-primary font-label-lg text-label-lg px-6 py-2 rounded-full hover:bg-surface-variant transition-colors">
+                    Load More
+                </button>
+</div>
+</section>
+</main>
+<script>
+        function toggleDrawer() {
+            const scrim = document.getElementById('drawer-scrim');
+            const panel = document.getElementById('drawer-panel');
+            
+            scrim.classList.toggle('active');
+            panel.classList.toggle('active');
+            
+            if (panel.classList.contains('active')) {
+                document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            } else {
+                document.body.style.overflow = '';
+            }
+        }
+    </script>
+</body></html>

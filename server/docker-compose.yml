@@ -1,0 +1,23 @@
+services:
+  # NestJS 应用服务
+  cine-stream-server:
+    build:
+      context: ../
+      dockerfile: server/Dockerfile
+    image: cine-stream-server:latest
+    container_name: cine-stream-server
+    restart: always
+    ports:
+      - "8793:8793"
+    environment:
+      NODE_ENV: production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - mongo # 加入同一网络
+    volumes:
+      - .env.production:/app/server/.env.production:ro # 只读挂载
+
+networks:
+  mongo:
+    external: true # 引用 mongo 网络

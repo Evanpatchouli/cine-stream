@@ -1,0 +1,1 @@
+docker logs --tail 300 cine-stream-server

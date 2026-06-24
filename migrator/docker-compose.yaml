@@ -1,0 +1,17 @@
+services:
+  # 迁移 Job（一次性运行）
+  cine-stream-migrate:
+    build:
+      context: ..
+      dockerfile: migrator/Dockerfile # 专用 Dockerfile 或复用
+    environment:
+      NODE_ENV: production
+    command: [ "pnpm", "run", "migrate" ] # 覆盖默认 CMD
+    volumes:
+      - ../server/.env.production:/app/server/.env.production:ro # 只读挂载
+    networks:
+      - mongo
+
+networks:
+  mongo:
+    external: true # 引用 mongo 网络
