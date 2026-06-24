@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { loginByPhonePassword } from "@/api/http";
+import { loginByPhonePassword } from "@/api/user.api";
 import type { LoginUser } from "@/types";
 
 interface AuthState {
@@ -22,7 +22,11 @@ export const useAuthStore = create<AuthState>()(
       login: async (phone, password) => {
         set({ loading: true, error: "" });
         try {
-          const user = await loginByPhonePassword(phone, password);
+          const resp = await loginByPhonePassword(phone, password);
+          const user = resp.getData();
+          if (!resp.isSuccess() || !user) {
+            throw new Error(resp.getMessage() || "登录失败");
+          }
           set({
             token: user.token,
             user,
@@ -30,9 +34,13 @@ export const useAuthStore = create<AuthState>()(
             error: "",
           });
         } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : (error as { message?: string })?.message || "登录失败";
           set({
             loading: false,
-            error: error instanceof Error ? error.message : "登录失败",
+            error: message,
           });
           throw error;
         }

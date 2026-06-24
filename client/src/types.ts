@@ -13,7 +13,7 @@ export interface Cine {
   id: string;
   name: string;
   description?: string;
-  genre?: string;
+  genre?: string[];
   year?: string;
   season?: string;
   rating?: string;
@@ -23,6 +23,7 @@ export interface Cine {
   meta?: string;
   progressText?: string;
   progress?: number;
+  cast?: string[];
   episodes?: Episode[];
 }
 
@@ -37,8 +38,42 @@ export interface LoginUser {
   permissions?: string[];
 }
 
-export interface ApiResp<T> {
-  code: string | number;
-  message?: string;
-  data?: T;
+export interface UserProfile {
+  id: string;
+  nickname?: string;
+  phone?: string;
+  username?: string;
+  email?: string;
+}
+
+export interface WatchHistoryItem {
+  id: string;
+  cine_id: string;
+  episode_id?: string | null;
+  progress: number;
+  position_seconds: number;
+  duration_seconds: number;
+  last_watched_at: number;
+  cine?: Cine | null;
+  episode?: Episode | null;
+}
+
+export interface WatchCollectionItem {
+  id: string;
+  cine_id: string;
+  created_at: number;
+  cine?: Cine | null;
+}
+
+export interface WatchOverview {
+  watched_count: number;
+  saved_count: number;
+}
+
+export interface RecordWatchHistoryInput {
+  cine_id: string;
+  episode_id?: string;
+  progress?: number;
+  position_seconds?: number;
+  duration_seconds?: number;
 }

@@ -1,4 +1,9 @@
-import { Injectable, Dependencies, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  Dependencies,
+  Inject,
+  NotFoundException,
+} from '@nestjs/common';
 import { getModelToken } from '@nestjs/mongoose';
 import { User } from './user.schema';
 import { UserLoginService } from './user.service.login';
@@ -7,6 +12,7 @@ import { RoleDocument } from '../role-module/role.schema';
 import { AccountLoginForm } from './models/LoginForm';
 import { UserRegisterService } from './user.service.register';
 import { AuthTokenPayload } from '@/auth/jwt';
+import { UserModel } from './user.model';
 
 @Injectable()
 @Dependencies(getModelToken(User.name))
@@ -15,6 +21,7 @@ export class UserService {
     @Inject() private loginService: UserLoginService,
     @Inject() private userRoleService: UserRoleService,
     @Inject() private registerService: UserRegisterService,
+    @Inject() private userModel: UserModel,
   ) {}
 
   async loginByOpenid(openid: string, ip: string, last_login_at: number) {
@@ -79,6 +86,16 @@ export class UserService {
 
   async assignNormalUserRole(user_id: string) {
     return await this.userRoleService.assignNormalUserRole(user_id);
+  }
+
+  async getProfile(userId: string): Promise<Record<string, any>> {
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+
+    const { password, role_ids, ...profile } = user.toJSON();
+    return profile;
   }
 
   async logout(user: AuthTokenPayload, token: string) {

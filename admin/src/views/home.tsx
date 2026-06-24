@@ -37,9 +37,7 @@ export default function Home() {
             alt="logo"
             style={{ width: 32 }}
           />
-          <Typography.Text style={styles.menuHeaderTextStyle}>
-            {APP_NAME}
-          </Typography.Text>
+          <Typography.Text style={styles.menuHeaderTextStyle}>{APP_NAME}</Typography.Text>
         </Flex>
         <AuthMenu />
       </Sider>
@@ -73,7 +71,7 @@ export default function Home() {
           <Outlet />
         </Content>
         <Footer style={{ textAlign: "center", flexShrink: 0 }}>
-          WebApp Admin Template ©{dayjs().year()} Powered by Evanpatchouli
+          Cine Stream Admin ©{dayjs().year()} Powered by Evanpatchouli
         </Footer>
       </Layout>
     </Layout>

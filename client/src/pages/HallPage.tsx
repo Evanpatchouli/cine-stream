@@ -1,22 +1,31 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Chip, IconButton, InputBase, Typography } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import MicRoundedIcon from "@mui/icons-material/MicRounded";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
 import { AppShell } from "@/components/AppShell";
-import { images, mockCines } from "@/data/mock";
+import { fetchWatchHistory } from "@/api/watch.api";
+import { MEDIA_PLACEHOLDERS } from "@/constants";
 import { useCineStore } from "@/stores/cines";
-import type { Cine } from "@/types";
+import { resolveMediaUrl } from "@/utils/media";
+import { toPlaybackPath } from "@/utils/routes";
+import type { Cine, WatchHistoryItem } from "@/types";
 
 function PosterCard({ cine }: { cine: Cine }) {
   const navigate = useNavigate();
+  const genreText = cine.genre?.length ? cine.genre.join(" / ") : "剧情";
   return (
     <article
       className="cursor-pointer"
-      onClick={() => navigate(`/play/${cine.id}`)}
+      onClick={() => navigate(toPlaybackPath(cine.id))}
     >
       <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-surface-variant shadow-md3">
-        <img className="h-full w-full object-cover" src={cine.poster} alt={cine.name} />
+        <img
+          className="h-full w-full object-cover"
+          src={resolveMediaUrl(cine.poster) || MEDIA_PLACEHOLDERS.poster}
+          alt={cine.name}
+        />
         {cine.badge ? (
           <span className="absolute left-2 top-2 rounded-sm bg-error px-2 py-0.5 text-[10px] font-bold uppercase text-white">
             {cine.badge}
@@ -27,41 +36,63 @@ function PosterCard({ cine }: { cine: Cine }) {
         {cine.name}
       </h3>
       <p className="mt-1 text-xs font-medium text-on-surface-variant">
-        {cine.meta || `${cine.genre || "剧情"} • ${cine.year || "2024"}`}
+        {cine.meta || `${genreText} • ${cine.year || "2024"}`}
       </p>
     </article>
   );
 }
 
 function ContinueCard({
-  title,
-  image,
-  progress,
-  subtitle,
+  item,
 }: {
-  title: string;
-  image: string;
-  progress: number;
-  subtitle: string;
+  item: WatchHistoryItem;
 }) {
+  const navigate = useNavigate();
+  const title = item.cine?.name || "未知影视";
+  const episodeName = item.episode?.name ? ` - ${item.episode.name}` : "";
+  const image =
+    resolveMediaUrl(
+      item.episode?.thumbnail || item.cine?.backdrop || item.cine?.poster,
+    ) ||
+    MEDIA_PLACEHOLDERS.thumbnail;
+
   return (
-    <article className="w-[240px] shrink-0">
+    <article
+      className="w-[240px] shrink-0 cursor-pointer"
+      onClick={() => navigate(toPlaybackPath(item.cine_id, item.episode_id))}
+    >
       <div className="relative aspect-video overflow-hidden rounded-lg bg-surface-variant shadow-md3">
         <img src={image} alt={title} className="h-full w-full object-cover" />
         <div className="absolute bottom-0 left-0 h-1 w-full bg-surface-variant">
-          <div className="h-full bg-primary" style={{ width: `${progress}%` }} />
+          <div className="h-full bg-primary" style={{ width: `${item.progress}%` }} />
         </div>
       </div>
-      <h3 className="mt-2 truncate text-sm font-semibold">{title}</h3>
-      <p className="mt-0.5 text-xs text-on-surface-variant">{subtitle}</p>
+      <h3 className="mt-2 truncate text-sm font-semibold">
+        {title}
+        {episodeName}
+      </h3>
+      <p className="mt-0.5 text-xs text-on-surface-variant">
+        进度 {item.progress}%
+      </p>
     </article>
   );
 }
 
 export function HallPage() {
   const cines = useCineStore((state) => state.cines);
+  const loading = useCineStore((state) => state.loading);
+  const error = useCineStore((state) => state.error);
   const navigate = useNavigate();
   const trending = cines.slice(0, 2);
+  const featured = cines[0] || null;
+  const picked = cines.slice(1, 3);
+  const [history, setHistory] = useState<WatchHistoryItem[]>([]);
+
+  useEffect(() => {
+    fetchWatchHistory()
+      .then((resp) => setHistory(resp.getData() || []))
+      .catch(() => setHistory([]));
+  }, []);
 
   return (
     <AppShell>
@@ -95,70 +126,95 @@ export function HallPage() {
         <Typography variant="h3" sx={{ mb: 2 }}>
           热门推荐
         </Typography>
-        <div className="grid grid-cols-2 gap-4">
-          {trending.map((cine) => (
-            <PosterCard key={cine.id} cine={cine} />
-          ))}
-        </div>
+        {trending.length ? (
+          <div className="grid grid-cols-2 gap-4">
+            {trending.map((cine) => (
+              <PosterCard key={cine.id} cine={cine} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
+            {loading ? "正在加载影视..." : error || "暂无影视内容"}
+          </div>
+        )}
       </section>
 
       <section className="-mx-container-padding mb-section-gap px-container-padding">
         <Typography variant="h3" sx={{ mb: 2 }}>
           继续观看
         </Typography>
-        <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar">
-          <ContinueCard
-            title="量子裂隙 - 第 1 季 第 4 集"
-            image={images.quantum}
-            progress={65}
-            subtitle="剩余 35 分钟"
-          />
-          <ContinueCard
-            title="地球边缘 - 森林"
-            image={images.forest}
-            progress={15}
-            subtitle="剩余 1 小时 10 分钟"
-          />
-        </div>
+        {history.length ? (
+          <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar">
+            {history.slice(0, 8).map((item) => (
+              <ContinueCard key={item.id} item={item} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
+            暂无观看记录
+          </div>
+        )}
       </section>
 
       <section>
         <Typography variant="h3" sx={{ mb: 2 }}>
           为你精选
         </Typography>
-        <div className="grid grid-cols-2 gap-4 auto-rows-[160px]">
-          <div
-            className="relative col-span-2 row-span-2 cursor-pointer overflow-hidden rounded-xl shadow-md3"
-            onClick={() => navigate(`/play/${cines[0]?.id || mockCines[0].id}`)}
-          >
-            <img src={images.gates} alt="失落之门" className="h-full w-full object-cover" />
-            <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-black/30 to-transparent p-4 text-white">
-              <span className="mb-2 w-max rounded bg-white/20 px-2 py-1 text-[10px]">
-                原创
-              </span>
-              <h3 className="text-2xl font-semibold leading-tight">
-                失落之门
-              </h3>
-              <p className="mt-1 line-clamp-2 text-sm">
-                当一扇古老的传送门在现代都市之下被发现，一段史诗般的旅程就此开始。
-              </p>
-            </div>
-          </div>
-          {[
-            ["晨间特调", images.morning],
-            ["速度", images.velocity],
-          ].map(([title, image]) => (
+        {featured ? (
+          <div className="grid grid-cols-2 gap-4 auto-rows-[160px]">
             <div
-              key={title}
-              className="relative overflow-hidden rounded-xl shadow-md3"
+              className="relative col-span-2 row-span-2 cursor-pointer overflow-hidden rounded-xl shadow-md3"
+              onClick={() => navigate(toPlaybackPath(featured.id))}
             >
-              <img src={image} alt={title} className="h-full w-full object-cover" />
-              <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/70 to-transparent p-2">
-                <span className="text-sm font-semibold text-white">{title}</span>
+              <img
+                src={
+                  resolveMediaUrl(featured.backdrop || featured.poster) ||
+                  MEDIA_PLACEHOLDERS.backdrop
+                }
+                alt={featured.name}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-black/30 to-transparent p-4 text-white">
+                {featured.badge ? (
+                  <span className="mb-2 w-max rounded bg-white/20 px-2 py-1 text-[10px]">
+                    {featured.badge}
+                  </span>
+                ) : null}
+                <h3 className="text-2xl font-semibold leading-tight">
+                  {featured.name}
+                </h3>
+                <p className="mt-1 line-clamp-2 text-sm">
+                  {featured.description || featured.meta || "暂无简介"}
+                </p>
               </div>
             </div>
-          ))}
-        </div>
+            {picked.map((cine) => (
+              <div
+                key={cine.id}
+                className="relative cursor-pointer overflow-hidden rounded-xl shadow-md3"
+                onClick={() => navigate(toPlaybackPath(cine.id))}
+              >
+                <img
+                  src={
+                    resolveMediaUrl(cine.backdrop || cine.poster) ||
+                    MEDIA_PLACEHOLDERS.backdrop
+                  }
+                  alt={cine.name}
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/70 to-transparent p-2">
+                  <span className="text-sm font-semibold text-white">
+                    {cine.name}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
+            暂无精选内容
+          </div>
+        )}
       </section>
 
       <button

@@ -36,6 +36,7 @@ export interface EnvConfig {
   APP_HOST: Maybe<string>;
   APP_ENV: 'development' | 'production' | 'test';
   APP_SECRET: string;
+  CORS_ORIGIN?: string;
 
   SESSION_SECRET: string;
 
@@ -48,6 +49,15 @@ export interface EnvConfig {
   SMTP_USER?: string;
   SMTP_PASS?: string;
   VIDEO_LIBRARY_ROOT?: string;
+  FFMPEG_PATH?: string;
+  FFPROBE_PATH?: string;
+  MEDIA_THUMBNAIL_TEMP_DIR?: string;
+  ALI_OSS_SERVER_BASE_URL?: string;
+  ALI_OSS_CLIENT_ID?: string;
+  ALI_OSS_CLIENT_SECRET?: string;
+  ALI_OSS_TOKEN_REFRESH_INTERVAL_MS?: number;
+  ALI_OSS_UPLOAD_OBJECT_PREFIX?: string;
+  ALI_OSS_IMAGE_MAX_SIZE_MB?: number;
 }
 
 // 环境变量验证器
@@ -116,6 +126,7 @@ export const env: EnvConfig = {
     | 'production'
     | 'test',
   APP_SECRET: getEnv('APP_SECRET', 'your-secret-key-change-in-production'),
+  CORS_ORIGIN: getEnv('CORS_ORIGIN', 'http://localhost:5173,http://localhost:5174'),
 
   // JWT
   JWT_SECRET: getEnv('JWT_SECRET'),
@@ -132,6 +143,27 @@ export const env: EnvConfig = {
   SMTP_USER: getEnv('SMTP_USER', ''),
   SMTP_PASS: getEnv('SMTP_PASS', ''),
   VIDEO_LIBRARY_ROOT: getEnv('VIDEO_LIBRARY_ROOT', './media'),
+  FFMPEG_PATH: getEnv('FFMPEG_PATH', ''),
+  FFPROBE_PATH: getEnv('FFPROBE_PATH', ''),
+  MEDIA_THUMBNAIL_TEMP_DIR: getEnv(
+    'MEDIA_THUMBNAIL_TEMP_DIR',
+    './storage/media-thumbnails',
+  ),
+  ALI_OSS_SERVER_BASE_URL: getEnv(
+    'ALI_OSS_SERVER_BASE_URL',
+    'http://localhost:3000',
+  ),
+  ALI_OSS_CLIENT_ID: getEnv('ALI_OSS_CLIENT_ID', ''),
+  ALI_OSS_CLIENT_SECRET: getEnv('ALI_OSS_CLIENT_SECRET', ''),
+  ALI_OSS_TOKEN_REFRESH_INTERVAL_MS: getEnv(
+    'ALI_OSS_TOKEN_REFRESH_INTERVAL_MS',
+    55 * 60 * 1000,
+  ),
+  ALI_OSS_UPLOAD_OBJECT_PREFIX: getEnv(
+    'ALI_OSS_UPLOAD_OBJECT_PREFIX',
+    'cinestream/images',
+  ),
+  ALI_OSS_IMAGE_MAX_SIZE_MB: getEnv('ALI_OSS_IMAGE_MAX_SIZE_MB', 10),
 };
 
 // 启动时验证环境变量

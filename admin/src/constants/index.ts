@@ -1,4 +1,4 @@
-export const APP_NAME = "模板项目";
+export const APP_NAME = "Cine Stream";
 export const SYSTEM_NAME = "后台管理系统";
 export const SUCCESS_CODE = "SUCCESS";
 

@@ -8,9 +8,11 @@ import {
 } from './cine.schema';
 import { CineController } from './cine.controller';
 import { CineService } from './cine.service';
+import { OssModule } from '../oss-module';
 
 @Module({
   imports: [
+    OssModule,
     MongooseModule.forFeature([
       { name: Cine.name, schema: CineSchema },
       { name: EpisodeVideo.name, schema: EpisodeVideoSchema },

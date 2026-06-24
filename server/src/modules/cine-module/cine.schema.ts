@@ -40,6 +40,20 @@ export class EpisodeVideo {
 
   @Prop({
     type: String,
+    trim: true,
+    default: '',
+  })
+  duration: string;
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: '',
+  })
+  thumbnail: string;
+
+  @Prop({
+    type: String,
     required: [true, '视频文件地址不能为空'],
     trim: true,
   })
@@ -99,6 +113,67 @@ export class Cine {
     default: '',
   })
   description: string;
+
+  @Prop({
+    type: [String],
+    default: [],
+  })
+  genre: string[];
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: '',
+  })
+  year: string;
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: '',
+  })
+  season: string;
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: '',
+  })
+  rating: string;
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: '',
+  })
+  poster: string;
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: '',
+  })
+  backdrop: string;
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: '',
+  })
+  badge: string;
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: '',
+  })
+  meta: string;
+
+  @Prop({
+    type: [String],
+    default: [],
+  })
+  cast: string[];
 
   @Prop({
     type: [Types.ObjectId],

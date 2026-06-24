@@ -2,10 +2,52 @@
 
 ## 当前状态
 
+- 2026-06-25：客户端播放页全屏入口已改为对播放器容器 `.cine-player` 调用 Fullscreen API，并在播放器右下角放置自定义“全屏播放”按钮，用于视觉上替代原生全屏按钮。连播倒计时提示层现在和 video 同处该容器内，全屏时可随容器一起显示；原生视频控件中的全屏按钮通过 WebKit/Blink 媒体控件 CSS 伪元素隐藏，避免只全屏 `<video>` 导致提示层不可见。
+- 2026-06-25：客户端播放页已增加“自动连播”开关，默认开启并通过 `localStorage` 记忆偏好。视频播放结束后如果存在下一集，会显示“即将播放下一集”提示层，5 秒倒计时后跳转下一集；提示层支持“立即播放”和“取消”。最后一集不会循环。
+- 2026-06-25：管理端通用 `ImageUploadInput` 已补齐图片预览能力。Upload 图片卡片现在同时显示预览和删除图标，点击预览会打开 Antd Image 预览层；原有上传和删除逻辑不变。
+- 2026-06-25：管理端剧集配置列表项的“缩略图”标题旁已增加刷新图标按钮，Tooltip 为“重新抽取”。点击后会基于当前视频文件重新调用 `media/info`，用新的随机抽帧结果覆盖该集缩略图；未选择视频时提示先选择视频文件。
+- 2026-06-25：后端剧集缩略图抽帧已从固定第 1 秒改为随机抽帧。长视频优先在 10% 到 90% 区间随机选秒，短视频在可用秒数内随机；随机抽帧失败时仍兜底尝试 `1s` 和 `0s`。
+- 2026-06-25：管理端“配置剧集”弹窗列表项已按参考图进一步调整：顶部为“名称 + 时长”，名称输入框前使用 `Space.Compact + Space.Addon` 展示自动生成的 `【01】` 顺序前缀；底部为左侧缩略图、右侧“简介 + 视频文件”纵向布局。前缀仅为视觉展示，名称值仍原样使用管理员保存的剧集名称。
+- 2026-06-25：管理端“配置剧集”弹窗已改为两行列表项布局，操作按钮在右侧水平居中。剧集时长不再可手工编辑，选择视频后由后端 ffprobe 读取；默认缩略图由后端 ffmpeg 抽帧后上传 OSS，管理端直接回显 OSS 图片 URL。
+- 2026-06-25：播放页当前剧集已写入路径，支持 `/play/:id/:episodeId`。缺少或无效 episodeId 时会在剧集加载后重定向到有效剧集路径；切换剧集会更新 URL，刷新后保持当前集。
+- 2026-06-25：已修复 Mongoose `{ new: true }` 弃用警告，server 内相关 `findByIdAndUpdate/findOneAndUpdate` 调用已改为 `returnDocument: 'after'`。
+- 2026-06-25：手机同 WiFi 访问客户端无法登录的主要原因已定位：`client/.env` 仍配置 `VITE_APP_API_BASE_URL=http://localhost:8793/api`，手机浏览器中的 `localhost` 指向手机自身；如果改成开发机局域网 IP，还需要把 `server/.env` 的 `CORS_ORIGIN` 加上对应客户端 origin。
+- 2026-06-25：客户端播放页已开启进入即播，视频元素使用 `autoPlay`、`muted`、`playsInline` 和 `preload="auto"`；通过 `key={videoUrl}` 确保切换剧集后按新视频地址重新加载播放。
+- 2026-06-25：已移除 `/media-files` 静态资源播放方案。客户端视频播放改为使用公开流接口 `/api/cines/episodes/:episodeId/stream`；后端根据视频资源目录和剧集 `file_path` 解析绝对路径并流式返回视频，支持 Range 请求。
+- 2026-06-25：已修复 server CORS credentials 场景，`CORS_ORIGIN` 支持逗号分隔白名单，默认允许 `http://localhost:5173,http://localhost:5174`。
+- 2026-06-25：影视类型已从单值输入改为标签式多值输入。
+- 后端 `cine.genre` 已改为字符串数组，管理端创建/编辑使用 `Select mode="tags"`，列表用 Tag 展示多个类型。
+- 客户端首页影视卡片会把多个类型拼接为展示文本。
+- 2026-06-24：管理端影视图片已改为选择图片上传。
+- 后端新增 `OssModule` 和 `AliOssSdk`，封装 `ali-oss-server` token 获取、55 分钟默认定时刷新和图片上传。
+- 新增管理端图片上传接口：`POST /api/admin/cines/images`，返回 OSS `url/objectKey/bucket`。
+- 管理端影视创建/编辑弹窗内容区限制为 `70vh` 并滚动，标题和底部按钮保持可见。
+- 管理端影视海报、背景图和剧集缩略图统一使用 Antd `Upload` 图片卡片，不再展示 URL 输入框；上传成功后直接展示图片。
+- 新增后端 env 配置：
+  - `ALI_OSS_SERVER_BASE_URL`
+  - `ALI_OSS_CLIENT_ID`
+  - `ALI_OSS_CLIENT_SECRET`
+  - `ALI_OSS_TOKEN_REFRESH_INTERVAL_MS`
+  - `ALI_OSS_UPLOAD_OBJECT_PREFIX`
+  - `ALI_OSS_IMAGE_MAX_SIZE_MB`
+- 2026-06-24：已将客户端 mock 数据替换为真实接口。
+- `client` API 封装已改为 axios，并拆分为 `user.api.ts`、`cine.api.ts`、`watch.api.ts`。
+- `client` 首页、播放页、收藏页、历史页、个人空间已移除 `client/src/data/mock.ts` 依赖；真实数据为空时显示空状态。
+- 后端影视/剧集模型已补充客户端展示字段：类型、年份、季、分级、海报、背景、角标、副标题、演员、剧集时长和缩略图。
+- 管理端影视表单已支持维护新增展示字段。
+- 后端新增 `WatchModule`：
+  - `GET /api/watch/history`
+  - `POST /api/watch/history`
+  - `GET /api/watch/collections`
+  - `POST /api/watch/collections/:cineId`
+  - `DELETE /api/watch/collections/:cineId`
+  - `GET /api/watch/overview`
+- 后端新增 `GET /api/user/profile`。
+- 已修复 `server/src/decorators/request-meta.decorator.ts` 中 `createParamDecorator` 回调签名错误，避免 `@CurrentUser()` 运行时拿不到 `ExecutionContext`。
 - 已基于模板搭建 `cine-stream` monorepo。
 - 已实现管理端用户新增、影视管理、剧集配置和服务器视频文件选择。
 - 已实现后端影视/剧集模型、管理端 API、客户端 API、视频静态访问和手机号密码登录。
-- 已实现管理端视频资源目录配置，保存到 `server/storage/media-root.json`，文件浏览和 `/media-files/*` 静态访问共享该配置。
+- 已实现管理端视频资源目录配置，保存到 `server/storage/media-root.json`；文件浏览和视频流接口共享该配置。
 - 已实现移动端客户端登录、首页、收藏、历史、个人空间和播放页。
 - 已补齐各包 `.env`，并为前端与后端补齐 `.env.production`。
 - 本机开发的 `server/.env` 使用 `mongodb://127.0.0.1:27017/cine-stream`，避免 Windows 主机无法解析 Docker 服务名 `mongodb`。
@@ -18,6 +60,18 @@
 
 ## 验证结果
 
+- 本轮 `pnpm --filter @cine-stream/client build` 通过；内置 Browser 打开 `http://localhost:5174/#/play/...` 验证播放页非空白、无框架错误、控制台无相关错误，且“全屏播放”按钮唯一可见。内置 Browser 未实际进入 fullscreen，疑似测试容器限制；代码层已验证 fullscreen 目标改为 `.cine-player` 容器。
+- 本轮 `pnpm --filter @cine-stream/client build` 通过；内置 Browser 验证自定义“全屏播放”按钮位于播放器右下角，距离播放器右边和底边均为 12px。
+- `pnpm --filter @cine-stream/server build` 通过。
+- 本轮 `pnpm --filter @cine-stream/client build` 通过；浏览器验证客户端实际运行在 `http://localhost:5174/#/play/...`，播放页“自动连播”开关渲染正常、可切换、控制台无相关错误。
+- 本轮 `pnpm --filter @cine-stream/admin build` 通过；图片预览改动相关触碰文件已检查无 UTF-8 BOM。
+- 本轮 `pnpm --filter @cine-stream/admin build` 通过；缩略图重新抽取按钮相关触碰文件已检查无 UTF-8 BOM。
+- 本轮 `pnpm --filter @cine-stream/server build` 通过；同一视频随机 seek 抽帧手动验证 3 次均成功生成 jpg。
+- 本轮 `pnpm --filter @cine-stream/admin build` 通过；触碰文件已检查无 UTF-8 BOM。
+- 本轮已用开发管理员 token 调用 `GET /api/admin/cines?page=1&size=10`，返回 `SUCCESS` 且包含 1 个影视、5 个剧集。
+- `pnpm --filter @cine-stream/admin build` 通过。
+- 内置 `@ffmpeg-installer/ffmpeg` 与 `@ffprobe-installer/ffprobe` 二进制已执行 `-version` 验证。
+- `pnpm --filter @cine-stream/client build` 通过。
 - `pnpm run build` 通过。
 - Playwright 已完成 Chromium 移动视口截图验证：
   - `output/playwright/client-login.png`
@@ -28,4 +82,7 @@
 ## 注意事项
 
 - 前端仍有 Vite chunk size 警告，属于体积优化提醒，不影响构建产物。
+- 原生视频全屏按钮的 CSS 隐藏规则主要覆盖 Chromium / WebKit。若某些浏览器仍显示并允许使用原生 video 全屏按钮，只有通过页面内“全屏播放 / 切换到影院视图”入口进入全屏时，才能保证连播提示层显示。
+- 本轮未等待真实视频播放到片尾触发 ended；自动化只验证了播放页渲染和开关交互。完整倒计时跳转适合后续用短视频夹具或测试入口覆盖。
+- 内置 Browser 无现成管理端登录态，且本环境页面脚本不暴露 `localStorage`，`javascript:` 导航写入登录态也被安全策略拦截；因此本轮未能自动截取“配置剧集”弹窗截图。
 - 默认迁移会创建根管理员，运行 `pnpm --filter @cine-stream/server migrate` 后可用种子账户登录管理端。

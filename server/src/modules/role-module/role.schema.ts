@@ -163,5 +163,9 @@ RoleSchema.statics.findSystemRoles = function () {
 };
 
 RoleSchema.statics.softDelete = function (id: string | Types.ObjectId) {
-  return this.findByIdAndUpdate(id, { deleted_at: new Date() }, { new: true });
+  return this.findByIdAndUpdate(
+    id,
+    { deleted_at: new Date() },
+    { returnDocument: 'after' },
+  );
 };

@@ -1,7 +1,26 @@
 # 经验记录
 
+- Antd 单图表单适合用 `Upload` 的 `listType="picture-card"`、`maxCount={1}` 和受控 `fileList`，比输入框加上传按钮更贴近组件语义。
+- 剧集视频时长不应由管理端手工维护，应在后端基于实际视频文件解析，避免数据和文件不一致。
+- 视频默认封面应在后端通过 ffmpeg 抽帧生成，并走统一 OSS 上传链路保存访问 URL；不要新增一套本地静态缩略图公开路径。
+- `@ffmpeg-installer/ffmpeg` 和 `@ffprobe-installer/ffprobe` 在当前 pnpm 策略下比 `ffmpeg-static` 更合适，后者 postinstall 会被 ignored-builds 拦截。
+- 播放页的当前剧集不能只放在组件 state 中；刷新、分享链接、浏览器前进后退都需要 URL 作为状态来源。
+- 保留 `/play/:id` 入口时，页面应在剧集加载后自动补齐为 `/play/:id/:episodeId`，避免旧入口和新路径分裂。
+- Mongoose 新版本不再推荐在 `findOneAndUpdate()` / `findOneAndReplace()` 使用 `{ new: true }`，应改为 `{ returnDocument: 'after' }` 来表达返回更新后文档。
+- 手机访问同 WiFi 下的开发站点时，前端 env 中的 `localhost` 会解析到手机自身。跨设备调试要使用开发机局域网 IP，或把前端 API base 改成同源代理路径。
+- 跨设备访问前后端不同端口时仍是跨源请求，server 的 `CORS_ORIGIN` 需要包含手机实际打开的前端 origin，例如 `http://192.168.1.3:5173`。
+- 浏览器通常会拦截有声自动播放。播放页需要进入即播时，应使用 `autoPlay + muted + playsInline`，并在视频地址变化时通过稳定的 `key` 触发重新加载。
+- 视频播放不要直接把服务器磁盘文件映射成静态目录。更合适的是返回 episode stream API，由后端根据资源根目录和相对路径解析文件，校验不越界，并支持 Range 流式响应。
+- 浏览器端用 axios 上传 `FormData` 时不要手写 `Content-Type: multipart/form-data`，让 axios/浏览器自动补 boundary 更稳。
+- Node 里把 `Buffer` 放进 `Blob` 可能触发 `ArrayBufferLike` 类型不兼容；先复制到标准 `Uint8Array` 再构造 `Blob` 可以通过 TypeScript 校验。
+- axios 响应拦截器如果返回自定义 `Resp`，TypeScript 仍按 `AxiosResponse` 推断，需要在封装边界显式声明返回 `any`，否则业务 API 返回类型会和 axios 默认类型冲突。
+- NestJS `createParamDecorator` 的回调签名是 `(data, ctx)`；只写一个参数会把 `data` 当成 `ExecutionContext`，运行时调用 `ctx.switchToHttp()` 会失败。
+- 替换 mock 时要区分“内容 mock”和“视觉占位图”。影视、历史、收藏、统计应来自接口；海报缺失时使用固定占位图是渲染兜底，不应伪造业务数据。
 - 本项目使用 pnpm workspace，根脚本需要通过 `pnpm --filter @cine-stream/*` 调用各包脚本。
 - 客户端使用 `HashRouter`，浏览器验证时应访问 `/#/login`、`/#/hall`、`/#/collection`、`/#/play/:id`。
 - Playwright 的 iPhone 设备预设会默认需要 WebKit；当前验证使用 Chromium + `390,844` 视口。
 - Stitch 远程图片容易在自动化截图中显示为空白或灰块，交付页面应优先使用本地静态素材。
 - PowerShell 生成文本文件时要避免 BOM；本次手写文本通过 `apply_patch` 修改。
+- 内置 Browser 在当前环境的页面脚本作用域不暴露 `localStorage`，且会拦截 `javascript:` 导航写入状态；登录后页面截图验证需要真实登录态、用户协助验证码，或单独安装可注入 storage state 的 Playwright 流程。
+- 视频缩略图随机抽帧不宜覆盖全片范围；优先在 10% 到 90% 时长区间随机可以降低抽到片头、片尾黑场的概率，同时保留 `1s` / `0s` 固定兜底。
+- 播放器上有自定义覆盖层时，不要依赖原生 `<video>` 全屏入口；应对播放器容器调用 Fullscreen API，并把提示层、操作按钮和 video 放在同一个 fullscreen 容器内。

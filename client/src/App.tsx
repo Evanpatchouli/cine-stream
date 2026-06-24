@@ -17,7 +17,7 @@ function RequireAuth({ children }: { children: ReactElement }) {
 
   useEffect(() => {
     if (token) {
-      loadCines(token);
+      loadCines();
     }
   }, [token, loadCines]);
 
@@ -61,6 +61,14 @@ export default function App() {
         element={
           <RequireAuth>
             <SpacePage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/play/:id/:episodeId"
+        element={
+          <RequireAuth>
+            <PlaybackPage />
           </RequireAuth>
         }
       />

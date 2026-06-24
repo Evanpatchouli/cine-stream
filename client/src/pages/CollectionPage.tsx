@@ -1,21 +1,26 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Chip, IconButton, Typography } from "@mui/material";
 import FilterListRoundedIcon from "@mui/icons-material/FilterListRounded";
 import DownloadDoneRoundedIcon from "@mui/icons-material/DownloadDoneRounded";
 import { AppShell } from "@/components/AppShell";
-import { useCineStore } from "@/stores/cines";
-import { mockCines } from "@/data/mock";
+import { fetchCollections } from "@/api/watch.api";
+import { MEDIA_PLACEHOLDERS } from "@/constants";
+import { resolveMediaUrl } from "@/utils/media";
+import { toPlaybackPath } from "@/utils/routes";
+import type { WatchCollectionItem } from "@/types";
 
 export function CollectionPage() {
-  const cines = useCineStore((state) => state.cines);
+  const [collection, setCollection] = useState<WatchCollectionItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const collection = [
-    cines[3] || mockCines[3],
-    cines[4] || mockCines[4],
-    cines[5] || mockCines[5],
-    cines[6] || mockCines[6],
-    cines[7] || mockCines[7],
-  ];
+
+  useEffect(() => {
+    fetchCollections()
+      .then((resp) => setCollection(resp.getData() || []))
+      .catch(() => setCollection([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <AppShell>
@@ -43,35 +48,51 @@ export function CollectionPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {collection.map((cine) => (
-          <article
-            key={cine.id}
-            className="cursor-pointer"
-            onClick={() => navigate(`/play/${cine.id}`)}
-          >
-            <div className="relative mb-2 aspect-[2/3] overflow-hidden rounded-lg shadow-md3">
-              <img src={cine.poster} alt={cine.name} className="h-full w-full object-cover" />
-              {cine.badge ? (
-                <span className="absolute left-2 top-2 rounded-sm bg-error px-2 py-0.5 text-sm font-semibold text-white">
-                  {cine.badge === "已下载" ? (
-                    <span className="inline-flex items-center gap-1 rounded bg-white/80 px-1 text-on-surface">
-                      <DownloadDoneRoundedIcon sx={{ fontSize: 14 }} />
-                      已下载
+      {collection.length ? (
+        <div className="grid grid-cols-2 gap-4">
+          {collection.map((item) => {
+            const cine = item.cine;
+            if (!cine) {
+              return null;
+            }
+            return (
+              <article
+                key={item.id}
+                className="cursor-pointer"
+                onClick={() => navigate(toPlaybackPath(cine.id))}
+              >
+                <div className="relative mb-2 aspect-[2/3] overflow-hidden rounded-lg shadow-md3">
+                  <img
+                    src={resolveMediaUrl(cine.poster) || MEDIA_PLACEHOLDERS.poster}
+                    alt={cine.name}
+                    className="h-full w-full object-cover"
+                  />
+                  {cine.badge ? (
+                    <span className="absolute left-2 top-2 rounded-sm bg-error px-2 py-0.5 text-sm font-semibold text-white">
+                      {cine.badge === "已下载" ? (
+                        <span className="inline-flex items-center gap-1 rounded bg-white/80 px-1 text-on-surface">
+                          <DownloadDoneRoundedIcon sx={{ fontSize: 14 }} />
+                          已下载
+                        </span>
+                      ) : (
+                        cine.badge
+                      )}
                     </span>
-                  ) : (
-                    cine.badge
-                  )}
-                </span>
-              ) : null}
-            </div>
-            <h3 className="truncate text-base font-medium">{cine.name}</h3>
-            <p className="truncate text-sm text-on-surface-variant">
-              {cine.meta || "第 1 季 • 10 集"}
-          </p>
-        </article>
-      ))}
-      </div>
+                  ) : null}
+                </div>
+                <h3 className="truncate text-base font-medium">{cine.name}</h3>
+                <p className="truncate text-sm text-on-surface-variant">
+                  {cine.meta || cine.season || "暂无副标题"}
+                </p>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
+          {loading ? "正在加载收藏..." : "暂无收藏"}
+        </div>
+      )}
     </AppShell>
   );
 }

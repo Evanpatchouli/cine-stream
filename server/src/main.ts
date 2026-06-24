@@ -8,8 +8,6 @@ import AppConfig from './app.config';
 import cache from './cache';
 import { TraceIdInterceptor } from '@/common/trace/trace.interceptor';
 import session from 'express-session';
-import express from 'express';
-import { getVideoRootSetting } from '@/config/media-root';
 
 class ApplicationStarter {
   private readonly name = 'nest-server-starter';
@@ -50,14 +48,6 @@ class ApplicationStarter {
 
     const app = await NestFactory.create(AppModule);
     const httpAdapter = app.get(HttpAdapterHost);
-    app.use('/media-files', async (req, res, next) => {
-      try {
-        const { root } = await getVideoRootSetting();
-        return express.static(root)(req, res, next);
-      } catch (error) {
-        next(error);
-      }
-    });
     // 全局前缀
     app.setGlobalPrefix('api');
     // app.useGlobalFilters(new CatchGlobalExcenptionFilter(httpAdapter));
@@ -82,7 +72,19 @@ class ApplicationStarter {
 
     // 启用 CORS
     app.enableCors({
-      origin: process.env.CORS_ORIGIN || '*',
+      origin: (origin, callback) => {
+        if (!origin) {
+          callback(null, true);
+          return;
+        }
+
+        if (AppConfig.Server.CORS_ORIGINS.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error(`CORS origin not allowed: ${origin}`));
+      },
       credentials: true,
     });
 

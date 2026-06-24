@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Delete,
   Get,
@@ -8,11 +9,15 @@ import {
   Post,
   Put,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { PaginatedResult } from '@cine-stream/common';
 import Resp from '@/common/models/Resp';
 import { Auth, RoleIn } from '@/decorators/auth.decorator';
 import { Tag } from '@/decorators/tag.decorator';
+import { AliOssSdk, AliOssUploadResult } from '../oss-module/ali-oss.sdk';
 import {
   CreateCineDto,
   QueryCinePageDto,
@@ -20,13 +25,20 @@ import {
   UpdateMediaRootDto,
   UpdateCineDto,
 } from '../cine-module/dto';
-import { CineService, MediaFileItem } from '../cine-module/cine.service';
+import {
+  CineService,
+  MediaFileItem,
+  MediaInfo,
+} from '../cine-module/cine.service';
 
 @Auth()
 @Tag('影视管理')
 @Controller('admin/cines')
 export class AdminCineController {
-  constructor(@Inject() private readonly cineService: CineService) {}
+  constructor(
+    @Inject() private readonly cineService: CineService,
+    @Inject() private readonly aliOssSdk: AliOssSdk,
+  ) {}
 
   @RoleIn('SUPER_ADMIN', 'CONTENT_ADMIN', 'OPERATOR')
   @Get()
@@ -49,6 +61,23 @@ export class AdminCineController {
   }
 
   @RoleIn('SUPER_ADMIN', 'CONTENT_ADMIN', 'OPERATOR')
+  @Post('images')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadImage(
+    @UploadedFile() file?: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+    },
+  ): Promise<Resp<AliOssUploadResult>> {
+    if (!file) {
+      throw new BadRequestException('请选择图片文件');
+    }
+    const result = await this.aliOssSdk.uploadImage(file);
+    return Resp.success(result);
+  }
+
+  @RoleIn('SUPER_ADMIN', 'CONTENT_ADMIN', 'OPERATOR')
   @Get('media/files')
   async listVideoFiles(@Query('dir') dir?: string): Promise<
     Resp<{
@@ -59,6 +88,16 @@ export class AdminCineController {
     }>
   > {
     const result = await this.cineService.listVideoFiles(dir);
+    return Resp.success(result);
+  }
+
+  @RoleIn('SUPER_ADMIN', 'CONTENT_ADMIN', 'OPERATOR')
+  @Get('media/info')
+  async getMediaInfo(@Query('path') filePath?: string): Promise<Resp<MediaInfo>> {
+    if (!filePath) {
+      throw new BadRequestException('请选择视频文件');
+    }
+    const result = await this.cineService.getMediaInfo(filePath);
     return Resp.success(result);
   }
 

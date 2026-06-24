@@ -6,9 +6,10 @@ import { CacheController } from './cache.controller';
 import { UserManageController } from './user-manage.controller';
 import { CineModule } from '../cine-module';
 import { AdminCineController } from './cine.controller';
+import { OssModule } from '../oss-module';
 
 @Module({
-  imports: [UserModule, RoleModule, CineModule],
+  imports: [UserModule, RoleModule, CineModule, OssModule],
   controllers: [
     RoleController,
     CacheController,

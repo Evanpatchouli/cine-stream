@@ -31,6 +31,43 @@
 $ pnpm install
 ```
 
+## CineStream 配置
+
+### CORS
+
+前端请求携带 credentials 时，后端不能返回 `Access-Control-Allow-Origin: *`。本项目通过 `CORS_ORIGIN` 配置允许的前端源，多个地址用英文逗号分隔。
+
+```env
+CORS_ORIGIN=http://localhost:5173,http://localhost:5174
+```
+
+### Ali OSS 图片上传
+
+管理端影视海报、背景图和剧集缩略图通过独立的 `ali-oss-server` 服务上传。后端会用 `ALI_OSS_CLIENT_ID` 和 `ALI_OSS_CLIENT_SECRET` 换取 token，并按配置间隔自动刷新。
+
+```env
+ALI_OSS_SERVER_BASE_URL=http://localhost:3000
+ALI_OSS_CLIENT_ID=
+ALI_OSS_CLIENT_SECRET=
+ALI_OSS_TOKEN_REFRESH_INTERVAL_MS=3300000
+ALI_OSS_UPLOAD_OBJECT_PREFIX=cinestream/images
+ALI_OSS_IMAGE_MAX_SIZE_MB=10
+```
+
+`ALI_OSS_TOKEN_REFRESH_INTERVAL_MS` 默认是 55 分钟。上传接口为 `POST /api/admin/cines/images`，仅接受图片文件。
+
+### 视频元信息与默认封面
+
+管理端配置剧集时，后端会用 ffprobe 读取视频时长，并用 ffmpeg 抽取一帧作为默认缩略图。项目已内置 `@ffmpeg-installer/ffmpeg` 和 `@ffprobe-installer/ffprobe`，也可以通过环境变量覆盖为系统安装路径。
+
+```env
+FFMPEG_PATH=
+FFPROBE_PATH=
+MEDIA_THUMBNAIL_TEMP_DIR=./storage/media-thumbnails
+```
+
+生成的默认封面会先落到 `MEDIA_THUMBNAIL_TEMP_DIR` 临时目录，再通过现有 Ali OSS SDK 上传；剧集保存的是 OSS 返回的图片访问链接。
+
 ## Compile and run the project
 
 ```bash

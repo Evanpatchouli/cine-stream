@@ -29,14 +29,16 @@
     "@modules": "dist/modules"
   },
   "dependencies": {
+    "@cine-stream/common": "workspace:*",
     "@evanpatchouli/scheduler": "^1.1.3",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/event-emitter": "^3.0.1",
     "@nestjs/mongoose": "^11.0.4",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.2.5",
-    "@cine-stream/common": "workspace:*",
     "async_hooks": "^1.0.0",
     "chalk": "^4.1.2",
     "class-transformer": "^0.5.1",

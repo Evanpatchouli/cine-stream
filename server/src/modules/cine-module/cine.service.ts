@@ -5,9 +5,15 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { execFile } from 'child_process';
+import { randomUUID } from 'crypto';
 import * as fs from 'fs/promises';
+import { createReadStream } from 'fs';
+import type { FileHandle } from 'fs/promises';
 import * as path from 'path';
+import { promisify } from 'util';
 import { PaginatedResult } from '@cine-stream/common';
+import AppConfig from '@/app.config';
 import {
   getVideoRootSetting,
   updateVideoRootSetting,
@@ -23,6 +29,7 @@ import {
   EpisodeVideoInputDto,
   UpdateCineDto,
 } from './dto';
+import { AliOssSdk } from '../oss-module/ali-oss.sdk';
 
 const VIDEO_EXTENSIONS = new Set([
   '.mp4',
@@ -35,6 +42,8 @@ const VIDEO_EXTENSIONS = new Set([
   '.wmv',
 ]);
 
+const execFileAsync = promisify(execFile);
+
 export interface MediaFileItem {
   name: string;
   type: 'directory' | 'file';
@@ -43,12 +52,30 @@ export interface MediaFileItem {
   file_url?: string;
 }
 
+export interface MediaInfo {
+  relative_path: string;
+  duration: string;
+  duration_seconds: number;
+  thumbnail: string;
+}
+
+export interface VideoStreamInfo {
+  stream: ReturnType<typeof createReadStream>;
+  size: number;
+  start: number;
+  end: number;
+  contentLength: number;
+  contentType: string;
+  partial: boolean;
+}
+
 @Injectable()
 export class CineService {
   constructor(
     @InjectModel(Cine.name) private readonly cineModel: Model<CineDocument>,
     @InjectModel(EpisodeVideo.name)
     private readonly episodeModel: Model<EpisodeVideoDocument>,
+    private readonly aliOssSdk: AliOssSdk,
   ) {}
 
   async findPage(
@@ -97,6 +124,15 @@ export class CineService {
     const cine = await this.cineModel.create({
       name: dto.name,
       description: dto.description || '',
+      genre: dto.genre || [],
+      year: dto.year || '',
+      season: dto.season || '',
+      rating: dto.rating || '',
+      poster: dto.poster || '',
+      backdrop: dto.backdrop || '',
+      badge: dto.badge || '',
+      meta: dto.meta || '',
+      cast: dto.cast || [],
       episode_ids: [],
       created_at: Date.now(),
       updated_at: Date.now(),
@@ -117,7 +153,7 @@ export class CineService {
           ...dto,
           updated_at: Date.now(),
         },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .exec();
 
@@ -152,16 +188,25 @@ export class CineService {
     await this.episodeModel.deleteMany({ cine_id: cine._id }).exec();
 
     const docs = await this.episodeModel.insertMany(
-      episodes.map((episode, index) => ({
-        cine_id: cine._id,
-        name: episode.name,
-        description: episode.description || '',
-        file_path: episode.file_path,
-        file_url: episode.file_url || this.toMediaUrl(episode.file_path),
-        sort_order: index,
-        created_at: Date.now(),
-        updated_at: Date.now(),
-      })),
+      await Promise.all(
+        episodes.map(async (episode, index) => {
+          const media = await this.readVideoMetadata(episode.file_path, {
+            extractThumbnail: !episode.thumbnail,
+          });
+          return {
+            cine_id: cine._id,
+            name: episode.name,
+            description: episode.description || '',
+            duration: media.duration,
+            thumbnail: episode.thumbnail || media.thumbnail,
+            file_path: episode.file_path,
+            file_url: episode.file_url || '',
+            sort_order: index,
+            created_at: Date.now(),
+            updated_at: Date.now(),
+          };
+        }),
+      ),
     );
 
     cine.episode_ids = docs.map((doc) => doc._id as Types.ObjectId);
@@ -201,7 +246,6 @@ export class CineService {
           type,
           relative_path: relativePath,
           absolute_path: absolutePath,
-          file_url: type === 'file' ? this.toMediaUrl(relativePath) : undefined,
         } satisfies MediaFileItem;
       })
       .sort((a, b) => {
@@ -221,6 +265,20 @@ export class CineService {
 
   async getMediaRoot(): Promise<{ root: string; configured_root: string }> {
     return getVideoRootSetting();
+  }
+
+  async getMediaInfo(relativePath: string): Promise<MediaInfo> {
+    if (!relativePath.trim()) {
+      throw new BadRequestException('请选择视频文件');
+    }
+
+    const media = await this.readVideoMetadata(relativePath);
+    return {
+      relative_path: this.normalizeRelativePath(relativePath),
+      duration: media.duration,
+      duration_seconds: media.duration_seconds,
+      thumbnail: media.thumbnail,
+    };
   }
 
   async updateMediaRoot(
@@ -245,6 +303,10 @@ export class CineService {
     const sortMap = new Map(episodeIds.map((id, index) => [id, index]));
     const orderedEpisodes = episodes
       .map((episode) => episode.toJSON())
+      .map((episode) => ({
+        ...episode,
+        file_url: this.toEpisodeStreamUrl(episode.id),
+      }))
       .sort((a, b) => {
         return (sortMap.get(a.id) || 0) - (sortMap.get(b.id) || 0);
       });
@@ -268,8 +330,347 @@ export class CineService {
     return input.split(path.sep).filter(Boolean).join('/');
   }
 
-  private toMediaUrl(filePath: string): string {
-    const relative = this.normalizeRelativePath(filePath);
-    return `/media-files/${encodeURI(relative)}`;
+  private async readVideoMetadata(
+    relativePath: string,
+    options: { extractThumbnail?: boolean } = {},
+  ): Promise<MediaInfo> {
+    const { root } = await getVideoRootSetting();
+    const absolutePath = this.resolveInsideRoot(root, relativePath);
+    const stat = await fs.stat(absolutePath).catch(() => null);
+    if (!stat?.isFile()) {
+      throw new NotFoundException('视频文件不存在');
+    }
+
+    const duration =
+      (await this.readDurationByFfprobe(absolutePath)) ??
+      (await this.readMp4Duration(absolutePath));
+    const durationSeconds =
+      duration && Number.isFinite(duration) ? Math.round(duration) : 0;
+    const thumbnail =
+      options.extractThumbnail === false
+        ? ''
+        : await this.extractAndUploadVideoThumbnail(
+            absolutePath,
+            durationSeconds,
+          );
+
+    return {
+      relative_path: this.normalizeRelativePath(relativePath),
+      duration: this.formatDuration(durationSeconds),
+      duration_seconds: durationSeconds,
+      thumbnail,
+    };
+  }
+
+  private async extractAndUploadVideoThumbnail(
+    filePath: string,
+    durationSeconds: number,
+  ): Promise<string> {
+    await fs.mkdir(AppConfig.Media.THUMBNAIL_TEMP_DIR, { recursive: true });
+    const outputPath = path.join(
+      AppConfig.Media.THUMBNAIL_TEMP_DIR,
+      `${Date.now()}-${randomUUID()}.jpg`,
+    );
+
+    const attempts = this.buildThumbnailSeekAttempts(durationSeconds);
+    for (const seek of attempts) {
+      const ok = await this.runFfmpegThumbnail(filePath, outputPath, seek);
+      if (ok) {
+        try {
+          const buffer = await fs.readFile(outputPath);
+          const result = await this.aliOssSdk.uploadImage({
+            buffer,
+            originalname: `${path.basename(filePath, path.extname(filePath))}.jpg`,
+            mimetype: 'image/jpeg',
+          });
+          return result.url;
+        } catch {
+          return '';
+        } finally {
+          await fs.rm(outputPath, { force: true }).catch(() => undefined);
+        }
+      }
+    }
+
+    await fs.rm(outputPath, { force: true }).catch(() => undefined);
+    return '';
+  }
+
+  private buildThumbnailSeekAttempts(durationSeconds: number): string[] {
+    const attempts = new Set<string>();
+
+    if (durationSeconds > 2) {
+      const start = durationSeconds >= 10 ? Math.floor(durationSeconds * 0.1) : 1;
+      const end =
+        durationSeconds >= 10
+          ? Math.ceil(durationSeconds * 0.9)
+          : durationSeconds - 1;
+      const seek = this.randomInteger(start, Math.max(start, end));
+      attempts.add(String(seek));
+    }
+
+    attempts.add('1');
+    attempts.add('0');
+
+    return [...attempts];
+  }
+
+  private randomInteger(min: number, max: number): number {
+    const lower = Math.ceil(min);
+    const upper = Math.floor(max);
+    return Math.floor(Math.random() * (upper - lower + 1)) + lower;
+  }
+
+  private async runFfmpegThumbnail(
+    filePath: string,
+    outputPath: string,
+    seek: string,
+  ): Promise<boolean> {
+    try {
+      await execFileAsync(
+        AppConfig.Media.FFMPEG_PATH,
+        [
+          '-y',
+          '-ss',
+          seek,
+          '-i',
+          filePath,
+          '-frames:v',
+          '1',
+          '-q:v',
+          '3',
+          '-vf',
+          'scale=480:-2',
+          outputPath,
+        ],
+        { windowsHide: true },
+      );
+      const stat = await fs.stat(outputPath).catch(() => null);
+      return Boolean(stat?.isFile() && stat.size > 0);
+    } catch {
+      await fs.rm(outputPath, { force: true }).catch(() => undefined);
+      return false;
+    }
+  }
+
+  private async readDurationByFfprobe(filePath: string): Promise<number | null> {
+    try {
+      const { stdout } = await execFileAsync(
+        AppConfig.Media.FFPROBE_PATH,
+        [
+          '-v',
+          'error',
+          '-show_entries',
+          'format=duration',
+          '-of',
+          'default=noprint_wrappers=1:nokey=1',
+          filePath,
+        ],
+        { windowsHide: true },
+      );
+      const duration = Number(stdout.trim());
+      return Number.isFinite(duration) && duration > 0 ? duration : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async readMp4Duration(filePath: string): Promise<number | null> {
+    const ext = path.extname(filePath).toLowerCase();
+    if (!['.mp4', '.m4v', '.mov'].includes(ext)) {
+      return null;
+    }
+
+    const file = await fs.open(filePath, 'r');
+    try {
+      const stat = await file.stat();
+      return this.findMvhdDuration(file, 0, stat.size);
+    } finally {
+      await file.close();
+    }
+  }
+
+  private async findMvhdDuration(
+    file: FileHandle,
+    start: number,
+    end: number,
+  ): Promise<number | null> {
+    let offset = start;
+    const header = Buffer.alloc(16);
+
+    while (offset + 8 <= end) {
+      await file.read(header, 0, 8, offset);
+      const size32 = header.readUInt32BE(0);
+      const type = header.toString('ascii', 4, 8);
+      let headerSize = 8;
+      let atomSize = size32;
+
+      if (size32 === 1) {
+        await file.read(header, 8, 8, offset + 8);
+        atomSize = Number(header.readBigUInt64BE(8));
+        headerSize = 16;
+      } else if (size32 === 0) {
+        atomSize = end - offset;
+      }
+
+      if (atomSize < headerSize) {
+        break;
+      }
+
+      const contentStart = offset + headerSize;
+      const contentEnd = Math.min(offset + atomSize, end);
+
+      if (type === 'mvhd') {
+        return this.readMvhdDuration(file, contentStart, contentEnd);
+      }
+
+      if (['moov', 'trak', 'mdia', 'minf', 'stbl', 'edts', 'udta'].includes(type)) {
+        const duration = await this.findMvhdDuration(
+          file,
+          contentStart,
+          contentEnd,
+        );
+        if (duration !== null) {
+          return duration;
+        }
+      }
+
+      offset += atomSize;
+    }
+
+    return null;
+  }
+
+  private async readMvhdDuration(
+    file: FileHandle,
+    start: number,
+    end: number,
+  ): Promise<number | null> {
+    const size = Math.min(32, end - start);
+    if (size < 20) {
+      return null;
+    }
+
+    const buffer = Buffer.alloc(size);
+    await file.read(buffer, 0, size, start);
+    const version = buffer.readUInt8(0);
+
+    if (version === 1) {
+      if (size < 32) {
+        return null;
+      }
+      const timescale = buffer.readUInt32BE(20);
+      const duration = Number(buffer.readBigUInt64BE(24));
+      return timescale ? duration / timescale : null;
+    }
+
+    const timescale = buffer.readUInt32BE(12);
+    const duration = buffer.readUInt32BE(16);
+    return timescale ? duration / timescale : null;
+  }
+
+  private formatDuration(seconds: number): string {
+    if (!seconds || seconds < 0) {
+      return '';
+    }
+
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const rest = seconds % 60;
+    const pad = (value: number) => value.toString().padStart(2, '0');
+
+    return hours > 0
+      ? `${hours}:${pad(minutes)}:${pad(rest)}`
+      : `${minutes}:${pad(rest)}`;
+  }
+
+  async createEpisodeVideoStream(
+    episodeId: string,
+    range?: string,
+  ): Promise<VideoStreamInfo> {
+    const episode = await this.episodeModel.findById(episodeId).exec();
+    if (!episode) {
+      throw new NotFoundException('剧集不存在');
+    }
+
+    const { root } = await getVideoRootSetting();
+    const absolutePath = this.resolveInsideRoot(root, episode.file_path);
+    const stat = await fs.stat(absolutePath).catch(() => null);
+    if (!stat?.isFile()) {
+      throw new NotFoundException('视频文件不存在');
+    }
+
+    const size = stat.size;
+    const { start, end, partial } = this.parseRange(range, size);
+    const stream = createReadStream(absolutePath, { start, end });
+
+    return {
+      stream,
+      size,
+      start,
+      end,
+      contentLength: end - start + 1,
+      contentType: this.getVideoContentType(absolutePath),
+      partial,
+    };
+  }
+
+  private parseRange(
+    range: string | undefined,
+    size: number,
+  ): { start: number; end: number; partial: boolean } {
+    if (!range) {
+      return { start: 0, end: size - 1, partial: false };
+    }
+
+    const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+    if (!match) {
+      throw new BadRequestException('Range 请求头格式错误');
+    }
+
+    const [, startText, endText] = match;
+    let start = startText ? Number(startText) : 0;
+    let end = endText ? Number(endText) : size - 1;
+
+    if (!startText && endText) {
+      const suffixLength = Number(endText);
+      start = Math.max(size - suffixLength, 0);
+      end = size - 1;
+    }
+
+    if (
+      !Number.isInteger(start) ||
+      !Number.isInteger(end) ||
+      start < 0 ||
+      end < start ||
+      start >= size
+    ) {
+      throw new BadRequestException('Range 请求范围无效');
+    }
+
+    return {
+      start,
+      end: Math.min(end, size - 1),
+      partial: true,
+    };
+  }
+
+  private getVideoContentType(filePath: string): string {
+    const ext = path.extname(filePath).toLowerCase();
+    const map: Record<string, string> = {
+      '.mp4': 'video/mp4',
+      '.m4v': 'video/mp4',
+      '.webm': 'video/webm',
+      '.mov': 'video/quicktime',
+      '.mkv': 'video/x-matroska',
+      '.avi': 'video/x-msvideo',
+      '.flv': 'video/x-flv',
+      '.wmv': 'video/x-ms-wmv',
+    };
+    return map[ext] || 'application/octet-stream';
+  }
+
+  private toEpisodeStreamUrl(episodeId: string): string {
+    return `/api/cines/episodes/${episodeId}/stream`;
   }
 }

@@ -51,6 +51,23 @@ select:focus {
   scrollbar-width: none;
 }
 
+.cine-player:fullscreen,
+.cine-player:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  aspect-ratio: auto;
+}
+
+.cine-player:fullscreen video,
+.cine-player:-webkit-full-screen video {
+  object-fit: contain;
+}
+
+.cine-player video::-webkit-media-controls-fullscreen-button {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .line-clamp-1 {
   overflow: hidden;
   text-overflow: ellipsis;

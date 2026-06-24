@@ -31,6 +31,10 @@ export class EpisodeVideoInputDto {
   @IsString()
   description?: string;
 
+  @IsOptional()
+  @IsString()
+  thumbnail?: string;
+
   @IsNotEmpty()
   @IsString()
   file_path: string;
@@ -51,6 +55,44 @@ export class CreateCineDto {
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
+  genre?: string[];
+
+  @IsOptional()
+  @IsString()
+  year?: string;
+
+  @IsOptional()
+  @IsString()
+  season?: string;
+
+  @IsOptional()
+  @IsString()
+  rating?: string;
+
+  @IsOptional()
+  @IsString()
+  poster?: string;
+
+  @IsOptional()
+  @IsString()
+  backdrop?: string;
+
+  @IsOptional()
+  @IsString()
+  badge?: string;
+
+  @IsOptional()
+  @IsString()
+  meta?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  cast?: string[];
+
+  @IsOptional()
+  @IsArray()
   @ValidateNested({ each: true })
   @Type(() => EpisodeVideoInputDto)
   episodes?: EpisodeVideoInputDto[];
@@ -64,6 +106,44 @@ export class UpdateCineDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  genre?: string[];
+
+  @IsOptional()
+  @IsString()
+  year?: string;
+
+  @IsOptional()
+  @IsString()
+  season?: string;
+
+  @IsOptional()
+  @IsString()
+  rating?: string;
+
+  @IsOptional()
+  @IsString()
+  poster?: string;
+
+  @IsOptional()
+  @IsString()
+  backdrop?: string;
+
+  @IsOptional()
+  @IsString()
+  badge?: string;
+
+  @IsOptional()
+  @IsString()
+  meta?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  cast?: string[];
 }
 
 export class ReplaceEpisodesDto {

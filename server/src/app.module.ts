@@ -16,6 +16,7 @@ import { OPTModule } from './modules/opt-module';
 import { EmailModule } from './modules/email-module';
 import { LoginLogModule } from './modules/login-log-module';
 import { CineModule } from './modules/cine-module';
+import { WatchModule } from './modules/watch-module';
 
 const mongoAuthOptions =
   AppConfig.DataBase.Mongo.USERNAME && AppConfig.DataBase.Mongo.PASSWORD
@@ -40,6 +41,7 @@ const mongoAuthOptions =
     EmailModule,
     LoginLogModule,
     CineModule,
+    WatchModule,
   ],
   controllers: [AppController],
   providers: [AuthProvider, AppService, GlobalExcenptionCatchProvider],

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Inject,
   Post,
   Query,
@@ -31,6 +32,7 @@ import { Tag } from '../../decorators/tag.decorator';
 import { Ip } from '@/decorators/ip.decorator';
 import { HeaderAuthorization } from '@/decorators/header.decorator';
 import { Todo } from '@/decorators/todo.decorator';
+import { AuthApi } from '@/auth/auth.decorator';
 
 class LoginQuery {
   @IsNotEmpty()
@@ -184,6 +186,16 @@ export class UserController {
       last_login_at,
     );
     return Resp.success(result);
+  }
+
+  @Tag('当前用户资料')
+  @AuthApi()
+  @Get('/profile')
+  async getProfile(
+    @CurrentUser() user: AuthTokenPayload,
+  ): Promise<Resp<Record<string, any>>> {
+    const profile = await this.userService.getProfile(user.id);
+    return Resp.success(profile);
   }
 
   @Todo('FIX', 'off')

@@ -202,6 +202,6 @@ UserSchema.statics.softDelete = function (id: string | Types.ObjectId) {
       deleted_at: Date.now(),
       updated_at: Date.now(),
     },
-    { new: true },
+    { returnDocument: 'after' },
   );
 };
