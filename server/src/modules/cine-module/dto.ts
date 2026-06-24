@@ -72,3 +72,9 @@ export class ReplaceEpisodesDto {
   @Type(() => EpisodeVideoInputDto)
   episodes: EpisodeVideoInputDto[];
 }
+
+export class UpdateMediaRootDto {
+  @IsNotEmpty()
+  @IsString()
+  root: string;
+}

@@ -7,8 +7,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import AppConfig from '@/app.config';
 import { PaginatedResult } from '@cine-stream/common';
+import {
+  getVideoRootSetting,
+  updateVideoRootSetting,
+} from '@/config/media-root';
 import {
   Cine,
   CineDocument,
@@ -170,13 +173,12 @@ export class CineService {
 
   async listVideoFiles(dir = ''): Promise<{
     root: string;
+    configured_root: string;
     current: string;
     items: MediaFileItem[];
   }> {
-    const root = path.resolve(
-      AppConfig.Process.ROOT,
-      AppConfig.Media.VIDEO_LIBRARY_ROOT,
-    );
+    const { root, configured_root: configuredRoot } =
+      await getVideoRootSetting();
     const current = this.resolveInsideRoot(root, dir);
 
     await fs.mkdir(root, { recursive: true });
@@ -211,9 +213,23 @@ export class CineService {
 
     return {
       root,
+      configured_root: configuredRoot,
       current: this.normalizeRelativePath(path.relative(root, current)),
       items,
     };
+  }
+
+  async getMediaRoot(): Promise<{ root: string; configured_root: string }> {
+    return getVideoRootSetting();
+  }
+
+  async updateMediaRoot(
+    root: string,
+  ): Promise<{ root: string; configured_root: string }> {
+    if (!root.trim()) {
+      throw new BadRequestException('请输入视频资源目录');
+    }
+    return updateVideoRootSetting(root);
   }
 
   private async withEpisodes(cine: CineDocument): Promise<Record<string, any>> {

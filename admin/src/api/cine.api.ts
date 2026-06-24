@@ -29,6 +29,11 @@ export interface MediaFileItem {
   file_url?: string;
 }
 
+export interface MediaRootSetting {
+  root: string;
+  configured_root: string;
+}
+
 export const queryCinePage = (params: {
   page: number;
   size: number;
@@ -56,7 +61,14 @@ export const replaceEpisodes = (
 export const listMediaFiles = (dir?: string): Promise<
   Resp<{
     root: string;
+    configured_root: string;
     current: string;
     items: MediaFileItem[];
   }>
 > => appRequest.get("/media/files", { params: { dir } });
+
+export const getMediaRoot = (): Promise<Resp<MediaRootSetting>> =>
+  appRequest.get("/media/root");
+
+export const updateMediaRoot = (root: string): Promise<Resp<MediaRootSetting>> =>
+  appRequest.put("/media/root", { root });

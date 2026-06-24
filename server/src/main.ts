@@ -9,7 +9,7 @@ import cache from './cache';
 import { TraceIdInterceptor } from '@/common/trace/trace.interceptor';
 import session from 'express-session';
 import express from 'express';
-import * as path from 'path';
+import { getVideoRootSetting } from '@/config/media-root';
 
 class ApplicationStarter {
   private readonly name = 'nest-server-starter';
@@ -50,11 +50,14 @@ class ApplicationStarter {
 
     const app = await NestFactory.create(AppModule);
     const httpAdapter = app.get(HttpAdapterHost);
-    const mediaRoot = path.resolve(
-      AppConfig.Process.ROOT,
-      AppConfig.Media.VIDEO_LIBRARY_ROOT,
-    );
-    app.use('/media-files', express.static(mediaRoot));
+    app.use('/media-files', async (req, res, next) => {
+      try {
+        const { root } = await getVideoRootSetting();
+        return express.static(root)(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    });
     // 全局前缀
     app.setGlobalPrefix('api');
     // app.useGlobalFilters(new CatchGlobalExcenptionFilter(httpAdapter));

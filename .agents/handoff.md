@@ -5,6 +5,7 @@
 - 已基于模板搭建 `cine-stream` monorepo。
 - 已实现管理端用户新增、影视管理、剧集配置和服务器视频文件选择。
 - 已实现后端影视/剧集模型、管理端 API、客户端 API、视频静态访问和手机号密码登录。
+- 已实现管理端视频资源目录配置，保存到 `server/storage/media-root.json`，文件浏览和 `/media-files/*` 静态访问共享该配置。
 - 已实现移动端客户端登录、首页、收藏、历史、个人空间和播放页。
 - 已补齐各包 `.env`，并为前端与后端补齐 `.env.production`。
 - 本机开发的 `server/.env` 使用 `mongodb://127.0.0.1:27017/cine-stream`，避免 Windows 主机无法解析 Docker 服务名 `mongodb`。

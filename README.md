@@ -46,6 +46,8 @@ pnpm dev:client
 
 `server/.env.production` 保留 Docker 网络服务名 `mongodb://mongodb:27017/cine-stream`。该地址只在后端同样运行在 Docker 网络内时可解析；如果在 Windows 主机直接运行 `pnpm dev:server`，必须使用 `127.0.0.1` 或 `localhost`。
 
+视频资源目录也可以在管理端“影视管理 -> 配置资源目录”中修改。修改后会写入 `server/storage/media-root.json`，文件浏览接口和 `/media-files/*` 视频访问都会读取这个配置。
+
 客户端参考 `client/.env.example`：
 
 - `VITE_APP_API_BASE_URL`: 后端 API 地址

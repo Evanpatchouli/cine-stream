@@ -17,6 +17,7 @@ import {
   CreateCineDto,
   QueryCinePageDto,
   ReplaceEpisodesDto,
+  UpdateMediaRootDto,
   UpdateCineDto,
 } from '../cine-module/dto';
 import { CineService, MediaFileItem } from '../cine-module/cine.service';
@@ -52,11 +53,38 @@ export class AdminCineController {
   async listVideoFiles(@Query('dir') dir?: string): Promise<
     Resp<{
       root: string;
+      configured_root: string;
       current: string;
       items: MediaFileItem[];
     }>
   > {
     const result = await this.cineService.listVideoFiles(dir);
+    return Resp.success(result);
+  }
+
+  @RoleIn('SUPER_ADMIN', 'CONTENT_ADMIN', 'OPERATOR')
+  @Get('media/root')
+  async getMediaRoot(): Promise<
+    Resp<{
+      root: string;
+      configured_root: string;
+    }>
+  > {
+    const result = await this.cineService.getMediaRoot();
+    return Resp.success(result);
+  }
+
+  @RoleIn('SUPER_ADMIN', 'CONTENT_ADMIN', 'OPERATOR')
+  @Put('media/root')
+  async updateMediaRoot(
+    @Body() dto: UpdateMediaRootDto,
+  ): Promise<
+    Resp<{
+      root: string;
+      configured_root: string;
+    }>
+  > {
+    const result = await this.cineService.updateMediaRoot(dto.root);
     return Resp.success(result);
   }
 
