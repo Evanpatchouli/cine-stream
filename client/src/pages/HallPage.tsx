@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Chip, IconButton, InputBase, Typography } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
@@ -10,6 +10,7 @@ import { MEDIA_PLACEHOLDERS } from "@/constants";
 import { useCineStore } from "@/stores/cines";
 import { resolveMediaUrl } from "@/utils/media";
 import { toPlaybackPath } from "@/utils/routes";
+import { formatProgressText, resolveHistoryProgress } from "@/utils/watchProgress";
 import type { Cine, WatchHistoryItem } from "@/types";
 
 function PosterCard({ cine }: { cine: Cine }) {
@@ -55,6 +56,7 @@ function ContinueCard({
       item.episode?.thumbnail || item.cine?.backdrop || item.cine?.poster,
     ) ||
     MEDIA_PLACEHOLDERS.thumbnail;
+  const progress = resolveHistoryProgress(item);
 
   return (
     <article
@@ -64,16 +66,14 @@ function ContinueCard({
       <div className="relative aspect-video overflow-hidden rounded-lg bg-surface-variant shadow-md3">
         <img src={image} alt={title} className="h-full w-full object-cover" />
         <div className="absolute bottom-0 left-0 h-1 w-full bg-surface-variant">
-          <div className="h-full bg-primary" style={{ width: `${item.progress}%` }} />
+          <div className="h-full bg-primary" style={{ width: `${progress}%` }} />
         </div>
       </div>
       <h3 className="mt-2 truncate text-sm font-semibold">
         {title}
         {episodeName}
       </h3>
-      <p className="mt-0.5 text-xs text-on-surface-variant">
-        进度 {item.progress}%
-      </p>
+      <p className="mt-0.5 text-xs text-on-surface-variant">{formatProgressText(progress)}</p>
     </article>
   );
 }
@@ -87,6 +87,13 @@ export function HallPage() {
   const featured = cines[0] || null;
   const picked = cines.slice(1, 3);
   const [history, setHistory] = useState<WatchHistoryItem[]>([]);
+  const continueItems = useMemo(
+    () => history.filter((item) => {
+      const progress = resolveHistoryProgress(item);
+      return progress > 0 && progress < 100;
+    }),
+    [history],
+  );
 
   useEffect(() => {
     fetchWatchHistory()
@@ -143,9 +150,9 @@ export function HallPage() {
         <Typography variant="h3" sx={{ mb: 2 }}>
           继续观看
         </Typography>
-        {history.length ? (
+        {continueItems.length ? (
           <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar">
-            {history.slice(0, 8).map((item) => (
+            {continueItems.slice(0, 8).map((item) => (
               <ContinueCard key={item.id} item={item} />
             ))}
           </div>

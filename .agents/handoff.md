@@ -2,6 +2,9 @@
 
 ## 当前状态
 
+- 2026-06-25：客户端观看进度已改为真实数据链路。后端按 `position_seconds` / `duration_seconds` 归一化 `watch_history.progress`，客户端首页继续观看、观看历史、播放页剧集列表统一显示真实进度，不再使用固定占位百分比。
+- 2026-06-25：播放页已支持真实续播。页面会先拉取当前影视下的个人观看历史，并在“历史已加载 + 视频元数据已就绪”后恢复到上次观看秒数；已修复历史晚于视频返回时仍从头播放的问题。
+- 2026-06-25：后端新增 `GET /api/watch/cines/:cineId/history`，供播放页按影视维度回填剧集进度和自动定位上次观看剧集。
 - 2026-06-25：客户端播放页全屏入口已改为对播放器容器 `.cine-player` 调用 Fullscreen API，并在播放器右下角放置自定义“全屏播放”按钮，用于视觉上替代原生全屏按钮。连播倒计时提示层现在和 video 同处该容器内，全屏时可随容器一起显示；原生视频控件中的全屏按钮通过 WebKit/Blink 媒体控件 CSS 伪元素隐藏，避免只全屏 `<video>` 导致提示层不可见。
 - 2026-06-25：客户端播放页已增加“自动连播”开关，默认开启并通过 `localStorage` 记忆偏好。视频播放结束后如果存在下一集，会显示“即将播放下一集”提示层，5 秒倒计时后跳转下一集；提示层支持“立即播放”和“取消”。最后一集不会循环。
 - 2026-06-25：管理端通用 `ImageUploadInput` 已补齐图片预览能力。Upload 图片卡片现在同时显示预览和删除图标，点击预览会打开 Antd Image 预览层；原有上传和删除逻辑不变。
@@ -14,7 +17,7 @@
 - 2026-06-25：手机同 WiFi 访问客户端无法登录的主要原因已定位：`client/.env` 仍配置 `VITE_APP_API_BASE_URL=http://localhost:8793/api`，手机浏览器中的 `localhost` 指向手机自身；如果改成开发机局域网 IP，还需要把 `server/.env` 的 `CORS_ORIGIN` 加上对应客户端 origin。
 - 2026-06-25：客户端播放页已开启进入即播，视频元素使用 `autoPlay`、`muted`、`playsInline` 和 `preload="auto"`；通过 `key={videoUrl}` 确保切换剧集后按新视频地址重新加载播放。
 - 2026-06-25：已移除 `/media-files` 静态资源播放方案。客户端视频播放改为使用公开流接口 `/api/cines/episodes/:episodeId/stream`；后端根据视频资源目录和剧集 `file_path` 解析绝对路径并流式返回视频，支持 Range 请求。
-- 2026-06-25：已修复 server CORS credentials 场景，`CORS_ORIGIN` 支持逗号分隔白名单，默认允许 `http://localhost:5173,http://localhost:5174`。
+- 2026-06-25：已修复 server CORS credentials 场景，`CORS_ORIGIN` 支持逗号分隔白名单，默认允许 `http://localhost:5210,http://localhost:5211`。
 - 2026-06-25：影视类型已从单值输入改为标签式多值输入。
 - 后端 `cine.genre` 已改为字符串数组，管理端创建/编辑使用 `Select mode="tags"`，列表用 Tag 展示多个类型。
 - 客户端首页影视卡片会把多个类型拼接为展示文本。
@@ -55,15 +58,18 @@
 - 已补 `docker-compose.dev.yml` 和 `pnpm dev:mongo`，用于在本机暴露 MongoDB 的 `27017` 端口。
 - 启动迁移已改为显式连接 MongoDB，不再在 Nest 应用创建前复用尚未建立的 mongoose 连接。
 - `common` 已补 `"type": "module"`，并将 CJS 产物调整为 `.cjs`，同时补齐 `constants` 和 `utils` 子路径 JS 产物。
-- 客户端开发服务已启动，可访问 `http://localhost:5173/#/login`。
-- 管理端开发服务已启动，可访问 `http://localhost:5174/`。
+- 客户端开发服务已启动，可访问 `http://localhost:5210/#/login`。
+- 管理端开发服务已启动，可访问 `http://localhost:5211/`。
 
 ## 验证结果
 
-- 本轮 `pnpm --filter @cine-stream/client build` 通过；内置 Browser 打开 `http://localhost:5174/#/play/...` 验证播放页非空白、无框架错误、控制台无相关错误，且“全屏播放”按钮唯一可见。内置 Browser 未实际进入 fullscreen，疑似测试容器限制；代码层已验证 fullscreen 目标改为 `.cine-player` 容器。
+- 本轮 `pnpm --filter @cine-stream/server test -- watch-progress.spec.ts` 通过。
+- 本轮 `pnpm --filter @cine-stream/server build` 通过。
+- 本轮 `pnpm --filter @cine-stream/client build` 通过；用户人工测试确认重新进入播放页时可按上次位置正常续播。
+- 本轮 `pnpm --filter @cine-stream/client build` 通过；内置 Browser 打开 `http://localhost:5211/#/play/...` 验证播放页非空白、无框架错误、控制台无相关错误，且“全屏播放”按钮唯一可见。内置 Browser 未实际进入 fullscreen，疑似测试容器限制；代码层已验证 fullscreen 目标改为 `.cine-player` 容器。
 - 本轮 `pnpm --filter @cine-stream/client build` 通过；内置 Browser 验证自定义“全屏播放”按钮位于播放器右下角，距离播放器右边和底边均为 12px。
 - `pnpm --filter @cine-stream/server build` 通过。
-- 本轮 `pnpm --filter @cine-stream/client build` 通过；浏览器验证客户端实际运行在 `http://localhost:5174/#/play/...`，播放页“自动连播”开关渲染正常、可切换、控制台无相关错误。
+- 本轮 `pnpm --filter @cine-stream/client build` 通过；浏览器验证客户端实际运行在 `http://localhost:5211/#/play/...`，播放页“自动连播”开关渲染正常、可切换、控制台无相关错误。
 - 本轮 `pnpm --filter @cine-stream/admin build` 通过；图片预览改动相关触碰文件已检查无 UTF-8 BOM。
 - 本轮 `pnpm --filter @cine-stream/admin build` 通过；缩略图重新抽取按钮相关触碰文件已检查无 UTF-8 BOM。
 - 本轮 `pnpm --filter @cine-stream/server build` 通过；同一视频随机 seek 抽帧手动验证 3 次均成功生成 jpg。
@@ -81,6 +87,7 @@
 
 ## 注意事项
 
+- 当前“已看完”阈值为进度达到 98% 或剩余时长不超过 3 秒；此类记录不会再从片尾附近续播。
 - 前端仍有 Vite chunk size 警告，属于体积优化提醒，不影响构建产物。
 - 原生视频全屏按钮的 CSS 隐藏规则主要覆盖 Chromium / WebKit。若某些浏览器仍显示并允许使用原生 video 全屏按钮，只有通过页面内“全屏播放 / 切换到影院视图”入口进入全屏时，才能保证连播提示层显示。
 - 本轮未等待真实视频播放到片尾触发 ended；自动化只验证了播放页渲染和开关交互。完整倒计时跳转适合后续用短视频夹具或测试入口覆盖。

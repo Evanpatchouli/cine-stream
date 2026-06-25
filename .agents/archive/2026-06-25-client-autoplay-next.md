@@ -18,7 +18,7 @@
 
 - `pnpm --filter @cine-stream/client build` 通过。
 - `client/src/pages/PlaybackPage.tsx` 和 `.agents/current-task.md` 已检查无 UTF-8 BOM。
-- 浏览器验证客户端实际运行在 `http://localhost:5174/#/play/...`，播放页“自动连播”开关渲染正常、可切换、控制台无相关错误。
+- 浏览器验证客户端实际运行在 `http://localhost:5211/#/play/...`，播放页“自动连播”开关渲染正常、可切换、控制台无相关错误。
 
 ## 限制
 

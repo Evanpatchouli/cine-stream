@@ -18,6 +18,7 @@ import {
   WatchHistory,
   WatchHistoryDocument,
 } from './watch.schema';
+import { normalizeWatchProgressPayload } from './watch-progress';
 
 @Injectable()
 export class WatchService {
@@ -43,6 +44,26 @@ export class WatchService {
     return this.hydrateWatchItems(histories);
   }
 
+  async listHistoryByCine(
+    userId: string,
+    cineId: string,
+  ): Promise<Record<string, any>[]> {
+    const userObjectId = this.toObjectId(userId, '用户 id 无效');
+    const cineObjectId = this.toObjectId(cineId, '影视 id 无效');
+    await this.assertCine(cineObjectId);
+
+    const histories = await this.historyModel
+      .find({
+        user_id: userObjectId,
+        cine_id: cineObjectId,
+      })
+      .sort({ last_watched_at: -1 })
+      .limit(500)
+      .exec();
+
+    return this.hydrateWatchItems(histories);
+  }
+
   async recordHistory(
     userId: string,
     dto: RecordWatchHistoryDto,
@@ -59,7 +80,7 @@ export class WatchService {
     }
 
     const now = Date.now();
-    const progress = Math.max(0, Math.min(dto.progress ?? 0, 100));
+    const normalized = normalizeWatchProgressPayload(dto);
     const history = await this.historyModel
       .findOneAndUpdate(
         {
@@ -69,9 +90,9 @@ export class WatchService {
         },
         {
           $set: {
-            progress,
-            position_seconds: dto.position_seconds ?? 0,
-            duration_seconds: dto.duration_seconds ?? 0,
+            progress: normalized.progress,
+            position_seconds: normalized.position_seconds,
+            duration_seconds: normalized.duration_seconds,
             last_watched_at: now,
             updated_at: now,
           },
@@ -158,10 +179,14 @@ export class WatchService {
 
     return histories.map((item) => {
       const data = item.toJSON();
+      const normalized = normalizeWatchProgressPayload(data);
       const cineId = item.cine_id.toString();
       const episodeId = item.episode_id?.toString() || null;
       return {
         ...data,
+        progress: normalized.progress,
+        position_seconds: normalized.position_seconds,
+        duration_seconds: normalized.duration_seconds,
         user_id: item.user_id.toString(),
         cine_id: cineId,
         episode_id: episodeId,

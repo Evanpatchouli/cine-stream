@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { createHmac, randomUUID } from 'crypto';
 import {
   BadGatewayException,
   BadRequestException,
@@ -82,6 +82,7 @@ export class AliOssSdk implements OnModuleInit, OnModuleDestroy {
     const blob = new Blob([bytes], { type: input.mimetype });
     formData.append('file', blob, input.originalname || 'image');
     formData.append('objectKey', this.buildObjectKey(input.originalname));
+    // formData.append('randomFilename', "true");
 
     const response = await fetch(this.joinUrl('/api/oss/upload'), {
       method: 'POST',
@@ -131,14 +132,19 @@ export class AliOssSdk implements OnModuleInit, OnModuleDestroy {
   }
 
   private async requestToken(): Promise<void> {
+    const clientId = AppConfig.AliOss.CLIENT_ID;
+    const sign = createHmac('sha256', AppConfig.AliOss.CLIENT_SECRET)
+      .update(clientId)
+      .digest('base64url');
+
     const response = await fetch(this.joinUrl('/api/auth/token'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-client-id': clientId,
       },
       body: JSON.stringify({
-        clientId: AppConfig.AliOss.CLIENT_ID,
-        clientSecret: AppConfig.AliOss.CLIENT_SECRET,
+        sign,
       }),
     });
 
@@ -213,7 +219,7 @@ export class AliOssSdk implements OnModuleInit, OnModuleDestroy {
     body: Record<string, any> | null,
     fallback: string,
   ): string {
-    return body?.message || body?.error || fallback || '未知错误';
+    return body?.message || body?.error?.message || fallback || '未知错误';
   }
 
   private readError(error: unknown): string {

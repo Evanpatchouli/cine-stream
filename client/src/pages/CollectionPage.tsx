@@ -1,26 +1,28 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Chip, IconButton, Typography } from "@mui/material";
 import FilterListRoundedIcon from "@mui/icons-material/FilterListRounded";
 import DownloadDoneRoundedIcon from "@mui/icons-material/DownloadDoneRounded";
 import { AppShell } from "@/components/AppShell";
-import { fetchCollections } from "@/api/watch.api";
 import { MEDIA_PLACEHOLDERS } from "@/constants";
+import { useCollectionStore } from "@/stores/collections";
 import { resolveMediaUrl } from "@/utils/media";
 import { toPlaybackPath } from "@/utils/routes";
-import type { WatchCollectionItem } from "@/types";
 
 export function CollectionPage() {
-  const [collection, setCollection] = useState<WatchCollectionItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const collection = useCollectionStore((state) => state.items);
+  const loaded = useCollectionStore((state) => state.loaded);
+  const loading = useCollectionStore((state) => state.loading);
+  const error = useCollectionStore((state) => state.error);
+  const loadCollections = useCollectionStore((state) => state.load);
   const navigate = useNavigate();
+  const collectionLoading = !loaded || loading;
 
   useEffect(() => {
-    fetchCollections()
-      .then((resp) => setCollection(resp.getData() || []))
-      .catch(() => setCollection([]))
-      .finally(() => setLoading(false));
-  }, []);
+    if (!loaded) {
+      void loadCollections();
+    }
+  }, [loadCollections, loaded]);
 
   return (
     <AppShell>
@@ -90,7 +92,7 @@ export function CollectionPage() {
         </div>
       ) : (
         <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
-          {loading ? "正在加载收藏..." : "暂无收藏"}
+          {collectionLoading ? "正在加载收藏..." : error || "暂无收藏"}
         </div>
       )}
     </AppShell>

@@ -21,6 +21,15 @@ export class WatchController {
     return Resp.success(result);
   }
 
+  @Get('cines/:cineId/history')
+  async listHistoryByCine(
+    @CurrentUser() user: AuthTokenPayload,
+    @Param('cineId') cineId: string,
+  ): Promise<Resp<Record<string, any>[]>> {
+    const result = await this.watchService.listHistoryByCine(user.id, cineId);
+    return Resp.success(result);
+  }
+
   @Post('history')
   async recordHistory(
     @CurrentUser() user: AuthTokenPayload,

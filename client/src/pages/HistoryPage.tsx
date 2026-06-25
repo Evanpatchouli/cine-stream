@@ -7,6 +7,7 @@ import { fetchWatchHistory } from "@/api/watch.api";
 import { MEDIA_PLACEHOLDERS } from "@/constants";
 import { resolveMediaUrl } from "@/utils/media";
 import { toPlaybackPath } from "@/utils/routes";
+import { formatProgressText, resolveHistoryProgress } from "@/utils/watchProgress";
 import type { WatchHistoryItem } from "@/types";
 
 function formatWatchedAt(timestamp: number) {
@@ -45,6 +46,7 @@ export function HistoryPage() {
                   item.cine?.poster,
               ) ||
               MEDIA_PLACEHOLDERS.thumbnail;
+            const progress = resolveHistoryProgress(item);
             return (
               <article
                 key={item.id}
@@ -68,11 +70,12 @@ export function HistoryPage() {
                   <p className="mt-0.5 text-sm text-on-surface-variant">
                     {episode}
                   </p>
+                  <p className="mt-1 text-xs text-on-surface-variant">{formatProgressText(progress)}</p>
                   <LinearProgress
                     variant="determinate"
-                    value={item.progress}
+                    value={progress}
                     sx={{
-                      mt: 1,
+                      mt: 0.75,
                       height: 4,
                       borderRadius: 999,
                       bgcolor: "#e1e3e4",

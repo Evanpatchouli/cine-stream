@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Chip, IconButton, LinearProgress, Slider, Switch, Typography } from "@mui/material";
+import { Chip, LinearProgress, Slider, Snackbar, Switch, Typography } from "@mui/material";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
 import PauseRoundedIcon from "@mui/icons-material/PauseRounded";
 import BookmarkAddOutlinedIcon from "@mui/icons-material/BookmarkAddOutlined";
+import BookmarkAddedRoundedIcon from "@mui/icons-material/BookmarkAddedRounded";
 import ScreenRotationRoundedIcon from "@mui/icons-material/ScreenRotationRounded";
 import FullscreenRoundedIcon from "@mui/icons-material/FullscreenRounded";
 import FullscreenExitRoundedIcon from "@mui/icons-material/FullscreenExitRounded";
@@ -13,18 +14,26 @@ import VolumeOffRoundedIcon from "@mui/icons-material/VolumeOffRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import { AppShell } from "@/components/AppShell";
 import { fetchCineDetail } from "@/api/cine.api";
-import { addCollection, recordWatchHistory } from "@/api/watch.api";
+import { fetchCineWatchHistory, recordWatchHistory } from "@/api/watch.api";
 import { MEDIA_PLACEHOLDERS } from "@/constants";
 import { useCineStore } from "@/stores/cines";
+import { useCollectionStore } from "@/stores/collections";
 import { resolveMediaUrl } from "@/utils/media";
 import { toPlaybackPath } from "@/utils/routes";
-import { throttle } from "es-toolkit/function";
-import type { Cine } from "@/types";
+import {
+  formatProgressText,
+  resolveHistoryProgress,
+  resolveProgressFromPlayback,
+  resolveResumePosition,
+} from "@/utils/watchProgress";
+import type { Cine, WatchHistoryItem } from "@/types";
 
 const AUTO_PLAY_NEXT_STORAGE_KEY = "cine-stream:auto-play-next";
 const AUTO_PLAY_NEXT_DELAY_SECONDS = 5;
 const LONG_PRESS_TRIGGER_MS = 450;
 const LONG_PRESS_PLAYBACK_RATE = 2;
+const WATCH_PROGRESS_SYNC_INTERVAL_MS = 10000;
+const WATCH_PROGRESS_SYNC_MIN_SECONDS = 5;
 
 const SLIDER_SX = {
   display: "block",
@@ -107,6 +116,15 @@ function formatTime(seconds: number) {
   return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
+function upsertWatchHistoryItem(
+  items: WatchHistoryItem[],
+  nextItem: WatchHistoryItem,
+) {
+  return [nextItem, ...items.filter((item) => item.id !== nextItem.id)].sort(
+    (left, right) => right.last_watched_at - left.last_watched_at,
+  );
+}
+
 export function PlaybackPage() {
   const { id, episodeId } = useParams();
   const navigate = useNavigate();
@@ -127,21 +145,94 @@ export function PlaybackPage() {
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [collectionSnackbarOpen, setCollectionSnackbarOpen] = useState(false);
+  const [episodeHistoryItems, setEpisodeHistoryItems] = useState<
+    WatchHistoryItem[]
+  >([]);
+  const [episodeHistoryLoaded, setEpisodeHistoryLoaded] = useState(false);
 
   const playerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsHideTimerRef = useRef<number | null>(null);
+  const lastSyncedPayloadRef = useRef<{
+    episodeId: string;
+    progress: number;
+    positionSeconds: number;
+    durationSeconds: number;
+  } | null>(null);
+  const lastSyncedAtRef = useRef(0);
+  const persistWatchProgressRef = useRef<(force?: boolean) => void>(
+    () => undefined,
+  );
+  const restoredEpisodeIdRef = useRef("");
 
   const longPressTimerRef = useRef<number | null>(null);
   const longPressActiveRef = useRef(false);
   const longPressTriggeredRef = useRef(false);
   const longPressRestoreRateRef = useRef(1);
   const cine = storeCine || detail;
+  const cineId = cine?.id;
+  const collectionsLoaded = useCollectionStore((state) => state.loaded);
+  const isCollected = useCollectionStore((state) => state.has(cineId));
+  const collectionPending = useCollectionStore((state) =>
+    cineId ? state.pendingCineIds.includes(cineId) : false,
+  );
+  const addToCollection = useCollectionStore((state) => state.add);
+  const removeFromCollection = useCollectionStore((state) => state.remove);
   const episodes = useMemo(() => cine?.episodes || [], [cine?.episodes]);
+  const episodeHistoryMap = useMemo(
+    () =>
+      new Map(
+        episodeHistoryItems
+          .filter((item) => item.episode_id)
+          .map((item) => [item.episode_id as string, item] as const),
+      ),
+    [episodeHistoryItems],
+  );
+  const routeEpisodeExists = useMemo(
+    () => Boolean(episodeId && episodes.some((episode) => episode.id === episodeId)),
+    [episodeId, episodes],
+  );
+  const latestHistoryEpisodeId = useMemo(
+    () => episodeHistoryItems.find((item) => item.episode_id)?.episode_id || "",
+    [episodeHistoryItems],
+  );
+  const resolvedEpisodeId = useMemo(() => {
+    if (routeEpisodeExists) {
+      return episodeId || "";
+    }
 
-  const activeEpisode = episodes.find((episode) => episode.id === episodeId) || episodes[0];
+    if (!episodeHistoryLoaded) {
+      return "";
+    }
 
+    if (
+      latestHistoryEpisodeId &&
+      episodes.some((episode) => episode.id === latestHistoryEpisodeId)
+    ) {
+      return latestHistoryEpisodeId;
+    }
+
+    return episodes[0]?.id || "";
+  }, [
+    episodeHistoryLoaded,
+    episodeId,
+    episodes,
+    latestHistoryEpisodeId,
+    routeEpisodeExists,
+  ]);
+  const activeEpisode = useMemo(
+    () => episodes.find((episode) => episode.id === resolvedEpisodeId) || null,
+    [episodes, resolvedEpisodeId],
+  );
   const activeEpisodeId = activeEpisode?.id || "";
+  const activeEpisodeHistory = activeEpisodeId
+    ? episodeHistoryMap.get(activeEpisodeId) || null
+    : null;
+  const activeSavedProgress = resolveHistoryProgress(activeEpisodeHistory);
+  const activeLiveProgress = resolveProgressFromPlayback(currentTime, duration);
+  const activeEpisodeProgress =
+    duration > 0 ? activeLiveProgress : activeSavedProgress;
 
   const activeEpisodeIndex = useMemo(
     () => (activeEpisodeId ? episodes.findIndex((episode) => episode.id === activeEpisodeId) : -1),
@@ -155,6 +246,7 @@ export function PlaybackPage() {
   const videoUrl = resolveMediaUrl(activeEpisode?.file_url);
 
   const posterUrl = resolveMediaUrl(cine?.backdrop) || resolveMediaUrl(cine?.poster) || MEDIA_PLACEHOLDERS.backdrop;
+  const collectionButtonDisabled = !collectionsLoaded || collectionPending;
 
   useEffect(() => {
     if (!id || storeCine) {
@@ -179,6 +271,42 @@ export function PlaybackPage() {
   }, [activeEpisodeId]);
 
   useEffect(() => {
+    if (!cineId) {
+      setEpisodeHistoryItems([]);
+      setEpisodeHistoryLoaded(false);
+      return;
+    }
+
+    let cancelled = false;
+    setEpisodeHistoryLoaded(false);
+
+    fetchCineWatchHistory(cineId)
+      .then((resp) => {
+        if (cancelled) {
+          return;
+        }
+
+        setEpisodeHistoryItems(resp.getData() || []);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+
+        setEpisodeHistoryItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setEpisodeHistoryLoaded(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cineId]);
+
+  useEffect(() => {
     const handleFullscreenChange = () => {
       setIsPlayerFullscreen(document.fullscreenElement === playerRef.current);
     };
@@ -191,7 +319,22 @@ export function PlaybackPage() {
   }, []);
 
   useEffect(() => {
+    const flushWatchProgress = () => persistWatchProgressRef.current(true);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushWatchProgress();
+      }
+    };
+
+    window.addEventListener("pagehide", flushWatchProgress);
+    window.addEventListener("beforeunload", flushWatchProgress);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
+      window.removeEventListener("pagehide", flushWatchProgress);
+      window.removeEventListener("beforeunload", flushWatchProgress);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+
       if (controlsHideTimerRef.current !== null) {
         window.clearTimeout(controlsHideTimerRef.current);
       }
@@ -214,6 +357,7 @@ export function PlaybackPage() {
 
     if (nextCountdown <= 0) {
       setNextCountdown(null);
+      persistWatchProgressRef.current(true);
       navigate(toPlaybackPath(id, nextEpisodeId));
       return;
     }
@@ -226,35 +370,24 @@ export function PlaybackPage() {
   }, [autoPlayNext, id, navigate, nextCountdown, nextEpisodeId]);
 
   useEffect(() => {
-    if (!id || !episodes.length) {
+    if (!id || !episodes.length || !resolvedEpisodeId || episodeId === resolvedEpisodeId) {
       return;
     }
 
-    const hasRouteEpisode = episodeId && episodes.some((episode) => episode.id === episodeId);
-
-    const nextEpisodeId = hasRouteEpisode ? episodeId : episodes[0]?.id;
-
-    if (nextEpisodeId && episodeId !== nextEpisodeId) {
-      navigate(toPlaybackPath(id, nextEpisodeId), { replace: true });
-    }
-  }, [episodeId, episodes, id, navigate]);
+    navigate(toPlaybackPath(id, resolvedEpisodeId), { replace: true });
+  }, [episodeId, episodes.length, id, navigate, resolvedEpisodeId]);
 
   useEffect(() => {
-    if (!cine) {
-      return;
-    }
-
-    recordWatchHistory({
-      cine_id: cine.id,
-      episode_id: activeEpisode?.id,
-      progress: activeEpisode ? 1 : 0,
-    }).catch(() => undefined);
-  }, [activeEpisode?.id, cine]);
+    return () => {
+      persistWatchProgressRef.current(true);
+    };
+  }, [activeEpisodeId, cineId]);
 
   useEffect(() => {
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
+    restoredEpisodeIdRef.current = "";
 
     if (longPressTimerRef.current !== null) {
       window.clearTimeout(longPressTimerRef.current);
@@ -265,19 +398,139 @@ export function PlaybackPage() {
     longPressTriggeredRef.current = false;
   }, [videoUrl]);
 
-  const saveToCollection = () => {
-    if (!cine) {
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (
+      !video ||
+      !activeEpisodeId ||
+      !episodeHistoryLoaded ||
+      duration <= 0 ||
+      restoredEpisodeIdRef.current === activeEpisodeId
+    ) {
       return;
     }
 
-    addCollection(cine.id).catch(() => undefined);
+    const resumeAt = resolveResumePosition(
+      activeEpisodeHistory?.position_seconds,
+      activeEpisodeHistory?.duration_seconds,
+      video.duration || duration,
+    );
+
+    if (resumeAt > 0 && Math.abs((video.currentTime || 0) - resumeAt) > 1) {
+      video.currentTime = resumeAt;
+      setCurrentTime(resumeAt);
+    }
+
+    restoredEpisodeIdRef.current = activeEpisodeId;
+  }, [
+    activeEpisodeHistory?.duration_seconds,
+    activeEpisodeHistory?.position_seconds,
+    activeEpisodeId,
+    duration,
+    episodeHistoryLoaded,
+  ]);
+
+  const toggleCollection = async () => {
+    if (!cineId) {
+      return;
+    }
+
+    try {
+      if (isCollected) {
+        await removeFromCollection(cineId);
+        return;
+      }
+
+      await addToCollection(cineId);
+      setCollectionSnackbarOpen(true);
+    } catch {
+      return;
+    }
   };
+
+  const persistWatchProgress = (force = false) => {
+    const video = videoRef.current;
+
+    if (!video || !cineId || !activeEpisodeId) {
+      return;
+    }
+
+    const durationSeconds = Number.isFinite(video.duration)
+      ? Math.max(0, video.duration || 0)
+      : 0;
+    const positionSeconds = Number.isFinite(video.currentTime)
+      ? Math.max(0, video.currentTime || 0)
+      : 0;
+
+    if (durationSeconds <= 0 || positionSeconds <= 0) {
+      return;
+    }
+
+    const progress = resolveProgressFromPlayback(positionSeconds, durationSeconds);
+    const lastPayload = lastSyncedPayloadRef.current;
+    const now = Date.now();
+    const sameEpisode = lastPayload?.episodeId === activeEpisodeId;
+    const sameProgress = lastPayload?.progress === progress;
+    const positionDelta = Math.abs(
+      (lastPayload?.positionSeconds || 0) - positionSeconds,
+    );
+    const durationDelta = Math.abs(
+      (lastPayload?.durationSeconds || 0) - durationSeconds,
+    );
+    const shouldSkipForceSync =
+      force &&
+      sameEpisode &&
+      sameProgress &&
+      positionDelta < 1 &&
+      durationDelta < 1;
+    const shouldSkipAutoSync =
+      !force &&
+      sameEpisode &&
+      sameProgress &&
+      positionDelta < WATCH_PROGRESS_SYNC_MIN_SECONDS &&
+      now - lastSyncedAtRef.current < WATCH_PROGRESS_SYNC_INTERVAL_MS;
+
+    if (shouldSkipForceSync || shouldSkipAutoSync) {
+      return;
+    }
+
+    lastSyncedPayloadRef.current = {
+      episodeId: activeEpisodeId,
+      progress,
+      positionSeconds,
+      durationSeconds,
+    };
+    lastSyncedAtRef.current = now;
+
+    recordWatchHistory({
+      cine_id: cineId,
+      episode_id: activeEpisodeId,
+      progress,
+      position_seconds: positionSeconds,
+      duration_seconds: durationSeconds,
+    })
+      .then((resp) => {
+        const item = resp.getData();
+        if (!item) {
+          return;
+        }
+
+        setEpisodeHistoryItems((current) =>
+          upsertWatchHistoryItem(current, item),
+        );
+      })
+      .catch(() => undefined);
+  };
+
+  persistWatchProgressRef.current = persistWatchProgress;
 
   const playNextEpisode = () => {
     if (!id || !nextEpisodeId) {
       return;
     }
 
+    persistWatchProgress(true);
     setNextCountdown(null);
     navigate(toPlaybackPath(id, nextEpisodeId));
   };
@@ -406,6 +659,7 @@ export function PlaybackPage() {
 
     video.currentTime = nextTime;
     setCurrentTime(nextTime);
+    persistWatchProgress(true);
   };
 
   const changeVolume = (value: number | number[]) => {
@@ -531,7 +785,10 @@ export function PlaybackPage() {
             onPointerLeave={handleVideoSurfacePointerRelease}
             onContextMenu={(event) => event.preventDefault()}
             onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
+            onPause={() => {
+              setIsPlaying(false);
+              persistWatchProgress(true);
+            }}
             onLoadedMetadata={(event) => {
               const video = event.currentTarget;
 
@@ -543,6 +800,7 @@ export function PlaybackPage() {
             }}
             onTimeUpdate={(event) => {
               setCurrentTime(event.currentTarget.currentTime || 0);
+              persistWatchProgress();
             }}
             onVolumeChange={(event) => {
               setVolume(event.currentTarget.volume);
@@ -553,6 +811,7 @@ export function PlaybackPage() {
             }}
             onEnded={() => {
               setIsPlaying(false);
+              persistWatchProgress(true);
               handleVideoEnded();
             }}
           />
@@ -704,9 +963,23 @@ export function PlaybackPage() {
             </div>
           </div>
 
-          <IconButton onClick={saveToCollection}>
-            <BookmarkAddOutlinedIcon />
-          </IconButton>
+          <button
+            type="button"
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition ${
+              isCollected
+                ? "border-primary/20 bg-primary text-white"
+                : "border-outline-variant bg-surface text-on-surface"
+            } ${collectionButtonDisabled ? "cursor-not-allowed opacity-60" : ""}`}
+            onClick={toggleCollection}
+            disabled={collectionButtonDisabled}
+            aria-label={isCollected ? "取消收藏" : "收藏"}
+          >
+            {isCollected ? (
+              <BookmarkAddedRoundedIcon sx={{ fontSize: 20 }} />
+            ) : (
+              <BookmarkAddOutlinedIcon sx={{ fontSize: 20 }} />
+            )}
+          </button>
         </div>
 
         <p className="mb-6 line-clamp-3 text-base leading-6 text-on-surface-variant">
@@ -755,6 +1028,13 @@ export function PlaybackPage() {
             {episodes.map((episode, index) => {
               const episodeId = episode.id || `episode-${index}`;
               const active = episodeId === activeEpisodeId;
+              const savedEpisodeProgress = episodeId
+                ? resolveHistoryProgress(episodeHistoryMap.get(episodeId))
+                : 0;
+              const episodeProgress = active
+                ? activeEpisodeProgress || savedEpisodeProgress
+                : savedEpisodeProgress;
+              const showProgress = episodeProgress > 0;
 
               return (
                 <button
@@ -764,6 +1044,7 @@ export function PlaybackPage() {
                   }`}
                   onClick={() => {
                     if (id) {
+                      persistWatchProgress(true);
                       setNextCountdown(null);
                       navigate(toPlaybackPath(id, episodeId));
                     }
@@ -792,18 +1073,25 @@ export function PlaybackPage() {
                       {index + 1}. {episode.name}
                     </div>
 
-                    {active ? (
-                      <LinearProgress
-                        variant="determinate"
-                        value={episode.progress || 33}
-                        sx={{
-                          mt: 1,
-                          height: 4,
-                          borderRadius: 999,
-                          bgcolor: "#e1e3e4",
-                          "& .MuiLinearProgress-bar": { bgcolor: "#000666" },
-                        }}
-                      />
+                    {showProgress ? (
+                      <>
+                        <LinearProgress
+                          variant="determinate"
+                          value={episodeProgress}
+                          sx={{
+                            mt: 1,
+                            height: 4,
+                            borderRadius: 999,
+                            bgcolor: "#e1e3e4",
+                            "& .MuiLinearProgress-bar": { bgcolor: "#000666" },
+                          }}
+                        />
+                        <div className="mt-1 text-[11px] text-on-surface-variant">
+                          {active
+                            ? `正在播放 · ${formatProgressText(episodeProgress)}`
+                            : formatProgressText(episodeProgress)}
+                        </div>
+                      </>
                     ) : null}
                   </div>
                 </button>
@@ -830,6 +1118,56 @@ export function PlaybackPage() {
           </div>
         </section>
       </div>
+
+      <Snackbar
+        open={collectionSnackbarOpen}
+        autoHideDuration={3000}
+        onClose={(_, reason) => {
+          if (reason === "clickaway") {
+            return;
+          }
+
+          setCollectionSnackbarOpen(false);
+        }}
+        message="收藏成功"
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        sx={{
+          bottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
+          left: "50%",
+          right: "auto",
+          transform: "translateX(-50%)",
+          width: "max-content",
+          maxWidth: "calc(100% - 32px)",
+        }}
+        slotProps={{
+          content: {
+            sx: {
+              minWidth: 0,
+              width: "auto",
+              flexGrow: 0,
+              height: 40,
+              borderRadius: 999,
+              bgcolor: "rgba(20, 20, 24, 0.92)",
+              color: "#fff",
+              boxShadow: "0 10px 28px rgba(0, 0, 0, 0.22)",
+              backdropFilter: "blur(12px)",
+              display: "inline-flex",
+              alignItems: "center",
+              px: 2.25,
+              py: 0,
+              "& .MuiSnackbarContent-message": {
+                display: "flex",
+                alignItems: "center",
+                padding: 0,
+                fontSize: 15,
+                lineHeight: 1,
+                fontWeight: 600,
+                letterSpacing: "0.01em",
+              },
+            },
+          },
+        }}
+      />
     </AppShell>
   );
 }

@@ -8,7 +8,7 @@
 - 保留 `/play/:id` 入口时，页面应在剧集加载后自动补齐为 `/play/:id/:episodeId`，避免旧入口和新路径分裂。
 - Mongoose 新版本不再推荐在 `findOneAndUpdate()` / `findOneAndReplace()` 使用 `{ new: true }`，应改为 `{ returnDocument: 'after' }` 来表达返回更新后文档。
 - 手机访问同 WiFi 下的开发站点时，前端 env 中的 `localhost` 会解析到手机自身。跨设备调试要使用开发机局域网 IP，或把前端 API base 改成同源代理路径。
-- 跨设备访问前后端不同端口时仍是跨源请求，server 的 `CORS_ORIGIN` 需要包含手机实际打开的前端 origin，例如 `http://192.168.1.3:5173`。
+- 跨设备访问前后端不同端口时仍是跨源请求，server 的 `CORS_ORIGIN` 需要包含手机实际打开的前端 origin，例如 `http://192.168.1.3:5210`。
 - 浏览器通常会拦截有声自动播放。播放页需要进入即播时，应使用 `autoPlay + muted + playsInline`，并在视频地址变化时通过稳定的 `key` 触发重新加载。
 - 视频播放不要直接把服务器磁盘文件映射成静态目录。更合适的是返回 episode stream API，由后端根据资源根目录和相对路径解析文件，校验不越界，并支持 Range 流式响应。
 - 浏览器端用 axios 上传 `FormData` 时不要手写 `Content-Type: multipart/form-data`，让 axios/浏览器自动补 boundary 更稳。
@@ -24,3 +24,5 @@
 - 内置 Browser 在当前环境的页面脚本作用域不暴露 `localStorage`，且会拦截 `javascript:` 导航写入状态；登录后页面截图验证需要真实登录态、用户协助验证码，或单独安装可注入 storage state 的 Playwright 流程。
 - 视频缩略图随机抽帧不宜覆盖全片范围；优先在 10% 到 90% 时长区间随机可以降低抽到片头、片尾黑场的概率，同时保留 `1s` / `0s` 固定兜底。
 - 播放器上有自定义覆盖层时，不要依赖原生 `<video>` 全屏入口；应对播放器容器调用 Fullscreen API，并把提示层、操作按钮和 video 放在同一个 fullscreen 容器内。
+- 续播恢复不要只挂在 `onLoadedMetadata`；观看历史和视频元数据是两条独立异步链路，历史晚到时需要用独立 effect 在条件齐备后补执行恢复。
+- 观看进度应以 `position_seconds + duration_seconds` 作为事实来源，`progress` 只做派生展示字段；否则首页、历史页、播放页很容易各自显示一套不一致的“假进度”。

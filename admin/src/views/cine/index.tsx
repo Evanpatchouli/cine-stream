@@ -723,7 +723,7 @@ export default function CineManageView() {
             <Form.Item name="poster" label="海报">
               <ImageUploadInput />
             </Form.Item>
-            <Form.Item name="backdrop" label="背景图">
+            <Form.Item name="backdrop" label="封面">
               <ImageUploadInput />
             </Form.Item>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>

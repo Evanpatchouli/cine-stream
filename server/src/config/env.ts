@@ -126,7 +126,7 @@ export const env: EnvConfig = {
     | 'production'
     | 'test',
   APP_SECRET: getEnv('APP_SECRET', 'your-secret-key-change-in-production'),
-  CORS_ORIGIN: getEnv('CORS_ORIGIN', 'http://localhost:5173,http://localhost:5174'),
+  CORS_ORIGIN: getEnv('CORS_ORIGIN', 'http://localhost:5210,http://localhost:5211'),
 
   // JWT
   JWT_SECRET: getEnv('JWT_SECRET'),

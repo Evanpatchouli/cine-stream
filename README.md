@@ -30,8 +30,8 @@ pnpm dev:client
 
 常用地址：
 
-- 客户端：`http://localhost:5173/#/login`
-- 管理端：Vite 默认地址，通常为 `http://localhost:5174`
+- 客户端：`http://localhost:5210/#/login`
+- 管理端：Vite 默认地址，通常为 `http://localhost:5211`
 - 后端：默认 `http://localhost:3000/api`
 
 ## 环境变量

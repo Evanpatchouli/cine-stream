@@ -10,7 +10,7 @@ export default class AppConfig {
   public static readonly Server = {
     HOST: env.APP_HOST || '0.0.0.0',
     PORT: env.APP_PORT || 8793,
-    CORS_ORIGINS: (env.CORS_ORIGIN || 'http://localhost:5173,http://localhost:5174')
+    CORS_ORIGINS: (env.CORS_ORIGIN || 'http://localhost:5210,http://localhost:5211')
       .split(',')
       .map((origin) => origin.trim())
       .filter(Boolean),

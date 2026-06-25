@@ -12,6 +12,10 @@ const appRequest = createAppRequest("/watch");
 export const fetchWatchHistory = (): Promise<Resp<WatchHistoryItem[]>> =>
   appRequest.get("/history");
 
+export const fetchCineWatchHistory = (
+  cineId: string,
+): Promise<Resp<WatchHistoryItem[]>> => appRequest.get(`/cines/${cineId}/history`);
+
 export const recordWatchHistory = (
   data: RecordWatchHistoryInput,
 ): Promise<Resp<WatchHistoryItem>> => appRequest.post("/history", data);

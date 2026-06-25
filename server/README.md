@@ -38,7 +38,7 @@ $ pnpm install
 前端请求携带 credentials 时，后端不能返回 `Access-Control-Allow-Origin: *`。本项目通过 `CORS_ORIGIN` 配置允许的前端源，多个地址用英文逗号分隔。
 
 ```env
-CORS_ORIGIN=http://localhost:5173,http://localhost:5174
+CORS_ORIGIN=http://localhost:5210,http://localhost:5211
 ```
 
 ### Ali OSS 图片上传

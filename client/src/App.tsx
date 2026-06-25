@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import type { ReactElement } from "react";
 import { useAuthStore } from "@/stores/auth";
 import { useCineStore } from "@/stores/cines";
+import { useCollectionStore } from "@/stores/collections";
 import { LoginPage } from "@/pages/LoginPage";
 import { HallPage } from "@/pages/HallPage";
 import { HistoryPage } from "@/pages/HistoryPage";
@@ -13,13 +14,18 @@ import { PlaybackPage } from "@/pages/PlaybackPage";
 function RequireAuth({ children }: { children: ReactElement }) {
   const token = useAuthStore((state) => state.token);
   const loadCines = useCineStore((state) => state.load);
+  const loadCollections = useCollectionStore((state) => state.load);
+  const clearCollections = useCollectionStore((state) => state.clear);
   const location = useLocation();
 
   useEffect(() => {
     if (token) {
-      loadCines();
+      void Promise.all([loadCines(), loadCollections()]);
+      return;
     }
-  }, [token, loadCines]);
+
+    clearCollections();
+  }, [clearCollections, loadCines, loadCollections, token]);
 
   if (!token) {
     return <Navigate to="/login" state={{ from: location }} replace />;
