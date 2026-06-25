@@ -1,5 +1,20 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { Button, Flex, Form, Image, Input, message, Modal, Space, Select, Table, Tag, Tooltip, Upload } from "antd";
+import {
+  Button,
+  Flex,
+  Form,
+  Image,
+  Input,
+  message,
+  Modal,
+  Popconfirm,
+  Space,
+  Select,
+  Table,
+  Tag,
+  Tooltip,
+  Upload,
+} from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { UploadFile, UploadProps } from "antd";
 import {
@@ -9,7 +24,9 @@ import {
   EditOutlined,
   FileOutlined,
   FolderOpenOutlined,
+  LoadingOutlined,
   PlusOutlined,
+  QuestionCircleOutlined,
   ReloadOutlined,
   SearchOutlined,
   SettingOutlined,
@@ -20,6 +37,8 @@ import * as CineAPI from "@/api/cine.api";
 import type { PaginatedResult } from "@cine-stream/common";
 
 type EpisodeDraft = CineAPI.EpisodeInput & { key: string };
+
+const HLS_STATUS_POLL_INTERVAL_MS = 4000;
 
 const emptyPage: PaginatedResult<CineAPI.CineRecord> = {
   list: [],
@@ -35,9 +54,17 @@ function createEpisodeDraft(): EpisodeDraft {
     name: "",
     description: "",
     duration: "",
+    duration_seconds: 0,
     thumbnail: "",
     file_path: "",
     file_url: "",
+    stream_url: "",
+    hls_url: "",
+    hls_status: "none",
+    hls_variants: [],
+    hls_profiles: [],
+    hls_last_error: "",
+    hls_updated_at: 0,
   };
 }
 
@@ -66,6 +93,58 @@ function toCinePayload(values: CineFormValues) {
     .map((item) => item.trim())
     .filter(Boolean);
   return { ...rest, cast };
+}
+
+function getHlsStatusTagColor(status?: CineAPI.EpisodeHlsStatus) {
+  switch (status) {
+    case "ready":
+      return "green";
+    case "processing":
+      return "processing";
+    case "failed":
+      return "red";
+    default:
+      return "default";
+  }
+}
+
+function getHlsStatusLabel(status?: CineAPI.EpisodeHlsStatus) {
+  switch (status) {
+    case "ready":
+      return "HLS 已就绪";
+    case "processing":
+      return "HLS 生成中";
+    case "failed":
+      return "HLS 失败";
+    default:
+      return "未生成 HLS";
+  }
+}
+
+function renderHlsStatus(status?: CineAPI.EpisodeHlsStatus) {
+  if (status === "processing") {
+    return (
+      <Tag color="processing" icon={<LoadingOutlined spin />}>
+        HLS 生成中
+      </Tag>
+    );
+  }
+
+  return <Tag color={getHlsStatusTagColor(status)}>{getHlsStatusLabel(status)}</Tag>;
+}
+
+function mergeEpisodeRuntimeState(episode: EpisodeDraft, nextEpisode: CineAPI.EpisodeInput): EpisodeDraft {
+  return {
+    ...episode,
+    stream_url: nextEpisode.stream_url || "",
+    file_url: nextEpisode.file_url || episode.file_url || "",
+    hls_url: nextEpisode.hls_url || "",
+    hls_status: nextEpisode.hls_status || "none",
+    hls_variants: nextEpisode.hls_variants || [],
+    hls_profiles: nextEpisode.hls_profiles || [],
+    hls_last_error: nextEpisode.hls_last_error || "",
+    hls_updated_at: nextEpisode.hls_updated_at || 0,
+  };
 }
 
 function ImageUploadInput({ value, onChange }: { value?: string; onChange?: (value: string) => void }) {
@@ -204,8 +283,10 @@ export default function CineManageView() {
   const [fileTargetIndex, setFileTargetIndex] = useState<number | null>(null);
   const [thumbnailRefreshingIndex, setThumbnailRefreshingIndex] = useState<number | null>(null);
   const [rootModalOpen, setRootModalOpen] = useState(false);
+  const [hlsHelpModalOpen, setHlsHelpModalOpen] = useState(false);
   const [rootForm] = Form.useForm();
   const [mediaRoot, setMediaRoot] = useState<CineAPI.MediaRootSetting | null>(null);
+  const [hlsPendingActions, setHlsPendingActions] = useState<string[]>([]);
   const [mediaState, setMediaState] = useState<{
     root: string;
     configured_root: string;
@@ -261,13 +342,22 @@ export default function CineManageView() {
     setEpisodes(
       record.episodes?.length
         ? record.episodes.map((episode) => ({
+            id: episode.id,
             key: episode.id || crypto.randomUUID(),
             name: episode.name,
             description: episode.description || "",
             duration: episode.duration || "",
+            duration_seconds: episode.duration_seconds || 0,
             thumbnail: episode.thumbnail || "",
             file_path: episode.file_path,
             file_url: episode.file_url || "",
+            stream_url: episode.stream_url || "",
+            hls_url: episode.hls_url || "",
+            hls_status: episode.hls_status || "none",
+            hls_variants: episode.hls_variants || [],
+            hls_profiles: episode.hls_profiles || [],
+            hls_last_error: episode.hls_last_error || "",
+            hls_updated_at: episode.hls_updated_at || 0,
           }))
         : [],
     );
@@ -299,11 +389,110 @@ export default function CineManageView() {
     }
     await CineAPI.replaceEpisodes(
       currentCine.id,
-      episodes.map(({ key, duration, ...episode }) => episode),
+      episodes.map((episode) => ({
+        id: episode.id,
+        name: episode.name,
+        description: episode.description || "",
+        thumbnail: episode.thumbnail || "",
+        file_path: episode.file_path,
+        file_url: episode.file_url || "",
+      })),
     );
     message.success("剧集配置已保存");
     setEpisodeModalOpen(false);
     loadData();
+  };
+
+  const setHlsActionPending = (actionKey: string, pending: boolean) => {
+    setHlsPendingActions((current) =>
+      pending ? [...new Set([...current, actionKey])] : current.filter((item) => item !== actionKey),
+    );
+  };
+
+  const syncEpisodeRuntimeFromServer = (nextEpisode?: CineAPI.EpisodeInput) => {
+    if (!nextEpisode?.id) {
+      return;
+    }
+
+    setEpisodes((current) =>
+      current.map((episode) =>
+        episode.id === nextEpisode.id ? mergeEpisodeRuntimeState(episode, nextEpisode) : episode,
+      ),
+    );
+
+    setCurrentCine((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        episodes: current.episodes?.map((episode) =>
+          episode.id === nextEpisode.id ? { ...episode, ...nextEpisode } : episode,
+        ),
+      };
+    });
+  };
+
+  const hasPendingEpisodeSourceChange = (record: EpisodeDraft) => {
+    if (!record.id) {
+      return true;
+    }
+
+    const persistedEpisode = currentCine?.episodes?.find((episode) => episode.id === record.id);
+    if (!persistedEpisode) {
+      return true;
+    }
+
+    return (persistedEpisode.file_path || "") !== (record.file_path || "");
+  };
+
+  const buildEpisodeHls = async (index: number, profile?: CineAPI.EpisodeHlsVariant["profile"]) => {
+    const record = episodes[index];
+    if (!record?.id) {
+      message.warning("请先保存剧集，再生成 HLS");
+      return;
+    }
+
+    if (hasPendingEpisodeSourceChange(record)) {
+      message.warning("请先保存当前视频文件变更，再生成 HLS");
+      return;
+    }
+
+    const actionKey = `build:${record.id}:${profile || "default"}`;
+    setHlsActionPending(actionKey, true);
+    try {
+      const resp = await CineAPI.buildEpisodeHls(record.id, profile);
+      const data = resp.getData();
+      syncEpisodeRuntimeFromServer(data || undefined);
+      message.success(`HLS 已加入任务队列${profile ? `（${profile}）` : "（默认档位）"}`);
+      loadData();
+    } catch (error: any) {
+      message.error(error?.message || "生成 HLS 失败");
+    } finally {
+      setHlsActionPending(actionKey, false);
+    }
+  };
+
+  const removeEpisodeHls = async (index: number) => {
+    const record = episodes[index];
+    if (!record?.id) {
+      return;
+    }
+
+    const actionKey = `delete:${record.id}`;
+    setHlsActionPending(actionKey, true);
+    try {
+      const resp = await CineAPI.deleteEpisodeHls(record.id);
+      const data = resp.getData();
+      syncEpisodeRuntimeFromServer(data || undefined);
+      message.success("HLS 已删除");
+      loadData();
+    } catch (error: any) {
+      message.error(error?.message || "删除 HLS 失败");
+    } finally {
+      setHlsActionPending(actionKey, false);
+    }
   };
 
   const loadMediaFiles = async (dir = "") => {
@@ -368,6 +557,13 @@ export default function CineManageView() {
       file_path: item.relative_path,
       file_url: item.file_url || "",
       duration: "读取中...",
+      duration_seconds: 0,
+      hls_url: "",
+      hls_status: "none",
+      hls_variants: [],
+      hls_profiles: [],
+      hls_last_error: "",
+      hls_updated_at: 0,
     });
     setFileModalOpen(false);
     setFileTargetIndex(null);
@@ -376,10 +572,11 @@ export default function CineManageView() {
       const info = resp.getData();
       updateEpisode(targetIndex, {
         duration: info?.duration || "",
+        duration_seconds: info?.duration_seconds || 0,
         thumbnail: info?.thumbnail || "",
       });
     } catch {
-      updateEpisode(targetIndex, { duration: "" });
+      updateEpisode(targetIndex, { duration: "", duration_seconds: 0 });
       message.warning("视频时长或默认封面读取失败，保存时会再次尝试解析");
     }
   };
@@ -396,6 +593,7 @@ export default function CineManageView() {
       const info = resp.getData();
       updateEpisode(index, {
         duration: info?.duration || "",
+        duration_seconds: info?.duration_seconds || 0,
         thumbnail: info?.thumbnail || "",
       });
       if (info?.thumbnail) {
@@ -418,6 +616,56 @@ export default function CineManageView() {
     parts.pop();
     loadMediaFiles(parts.join("/"));
   };
+
+  const hasProcessingEpisode = episodes.some((episode) => episode.id && episode.hls_status === "processing");
+
+  useEffect(() => {
+    if (!episodeModalOpen || !currentCine?.id || !hasProcessingEpisode) {
+      return;
+    }
+
+    let cancelled = false;
+    let polling = false;
+
+    const refreshRuntimeStates = async () => {
+      if (cancelled || polling) {
+        return;
+      }
+
+      polling = true;
+      try {
+        const resp = await CineAPI.getCineDetail(currentCine.id);
+        const data = resp.getData();
+        if (!data?.episodes) {
+          return;
+        }
+
+        setCurrentCine(data);
+        setEpisodes((current) =>
+          current.map((episode) => {
+            if (!episode.id) {
+              return episode;
+            }
+
+            const nextEpisode = data.episodes?.find((item) => item.id === episode.id);
+            return nextEpisode ? mergeEpisodeRuntimeState(episode, nextEpisode) : episode;
+          }),
+        );
+      } catch {
+        return;
+      } finally {
+        polling = false;
+      }
+    };
+
+    void refreshRuntimeStates();
+    const timer = window.setInterval(refreshRuntimeStates, HLS_STATUS_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [currentCine?.id, episodeModalOpen, hasProcessingEpisode]);
 
   const columns: ColumnsType<CineAPI.CineRecord> = [
     {
@@ -502,6 +750,35 @@ export default function CineManageView() {
   const renderEpisodeItem = (record: EpisodeDraft, index: number) => {
     const episodeNo = index + 1;
     const episodeNoLabel = `【${String(episodeNo).padStart(2, "0")}】`;
+    const sourceChanged = hasPendingEpisodeSourceChange(record);
+    const hlsBusy = record.hls_status === "processing";
+    const hlsProfiles = record.hls_profiles || [];
+    const canBuildHls = Boolean(record.id && record.file_path && !sourceChanged && !hlsBusy);
+    const canDeleteHls = Boolean(record.id && !hlsBusy && (hlsProfiles.length || record.hls_status === "failed"));
+    const deletingHls = record.id ? hlsPendingActions.includes(`delete:${record.id}`) : false;
+    const canRemoveEpisode = !(record.id && hlsBusy);
+    const buildDisabledReason = !record.id
+      ? "请先保存剧集，再生成 HLS"
+      : sourceChanged
+        ? "请先保存当前视频文件变更，再生成 HLS"
+        : hlsBusy
+          ? "当前剧集的 HLS 任务正在后台处理中"
+          : "默认优先生成 720p；源视频低于 720p 时自动选择可用档位";
+    const deleteDisabledReason = !record.id
+      ? "请先保存剧集"
+      : hlsBusy
+        ? "当前剧集的 HLS 任务正在后台处理中，暂不能删除"
+        : "删除当前剧集已有的 HLS 产物";
+    const hlsHelperText =
+      record.hls_status === "ready"
+        ? "客户端会优先播放 HLS，失败时自动回退直链视频。"
+        : record.hls_status === "processing"
+          ? hlsProfiles.length
+            ? "后台正在生成新的 HLS 档位，当前已有可用 HLS 仍可继续播放。"
+            : "HLS 已加入后台任务队列，生成完成后会自动刷新状态。"
+          : record.hls_status === "failed"
+            ? record.hls_last_error || "上次 HLS 生成失败，可重新尝试。"
+            : "未生成 HLS 时，客户端仍会继续使用直链视频播放。";
 
     return (
       <div
@@ -588,6 +865,93 @@ export default function CineManageView() {
               </div>
             </div>
           </div>
+
+          <div
+            style={{
+              padding: "12px 14px",
+              border: "1px solid #eef2f6",
+              borderRadius: 8,
+              background: "#fafcff",
+            }}
+          >
+            <div style={{ display: "grid", gap: 10 }}>
+              <Flex wrap gap={8} align="center">
+                <span style={{ color: "#6b7280", fontSize: 12, lineHeight: "18px" }}>HLS 设置</span>
+                {renderHlsStatus(record.hls_status)}
+                {hlsProfiles.map((profile) => (
+                  <Tag key={profile} color="blue">
+                    {profile}
+                  </Tag>
+                ))}
+                <Button
+                  type="text"
+                  size="small"
+                  style={{
+                    color: "#9ca3af",
+                    paddingInline: 2,
+                    height: 20,
+                  }}
+                  icon={<QuestionCircleOutlined style={{ color: "#9ca3af" }} />}
+                  onClick={() => setHlsHelpModalOpen(true)}
+                >
+                  什么是 HLS ?
+                </Button>
+              </Flex>
+
+              <Flex wrap gap={8} align="center">
+                <Tooltip title={buildDisabledReason}>
+                  <Button
+                    size="small"
+                    type="primary"
+                    ghost
+                    disabled={!canBuildHls}
+                    loading={record.id ? hlsPendingActions.includes(`build:${record.id}:default`) : false}
+                    onClick={() => buildEpisodeHls(index)}
+                  >
+                    生成默认 HLS
+                  </Button>
+                </Tooltip>
+                {(["1080p", "720p", "360p"] as const).map((profile) => (
+                  <Tooltip
+                    key={profile}
+                    title={!record.id || sourceChanged || hlsBusy ? buildDisabledReason : `生成 ${profile} HLS`}
+                  >
+                    <Button
+                      size="small"
+                      disabled={!canBuildHls}
+                      loading={record.id ? hlsPendingActions.includes(`build:${record.id}:${profile}`) : false}
+                      onClick={() => buildEpisodeHls(index, profile)}
+                    >
+                      {profile}
+                    </Button>
+                  </Tooltip>
+                ))}
+                {canDeleteHls ? (
+                  <Tooltip title={deleteDisabledReason}>
+                    <Popconfirm
+                      title="确认删除 HLS？"
+                      description="删除后，客户端会回退到直链视频播放。"
+                      okText="确认删除"
+                      cancelText="取消"
+                      onConfirm={() => removeEpisodeHls(index)}
+                    >
+                      <Button size="small" danger loading={deletingHls}>
+                        删除 HLS
+                      </Button>
+                    </Popconfirm>
+                  </Tooltip>
+                ) : (
+                  <Tooltip title={deleteDisabledReason}>
+                    <Button size="small" danger disabled loading={deletingHls}>
+                      删除 HLS
+                    </Button>
+                  </Tooltip>
+                )}
+              </Flex>
+
+              <div style={{ color: "#6b7280", fontSize: 12, lineHeight: "18px" }}>{hlsHelperText}</div>
+            </div>
+          </div>
         </div>
 
         <Space
@@ -607,13 +971,23 @@ export default function CineManageView() {
               onClick={() => moveEpisode(index, 1)}
             />
           </Tooltip>
-          <Tooltip title="删除">
-            <Button
-              danger
-              icon={<DeleteOutlined />}
-              onClick={() => setEpisodes((prev) => prev.filter((_, i) => i !== index))}
-            />
-          </Tooltip>
+          {canRemoveEpisode ? (
+            <Tooltip title="删除">
+              <Popconfirm
+                title="确认删除这个剧集？"
+                description="删除后会先从当前编辑列表移除，点保存后才会正式生效。"
+                okText="确认删除"
+                cancelText="取消"
+                onConfirm={() => setEpisodes((prev) => prev.filter((_, i) => i !== index))}
+              >
+                <Button danger icon={<DeleteOutlined />} />
+              </Popconfirm>
+            </Tooltip>
+          ) : (
+            <Tooltip title="当前剧集的 HLS 任务正在后台处理中，暂不能删除">
+              <Button danger icon={<DeleteOutlined />} disabled />
+            </Tooltip>
+          )}
         </Space>
       </div>
     );
@@ -780,6 +1154,40 @@ export default function CineManageView() {
               暂无剧集
             </div>
           )}
+        </div>
+      </Modal>
+
+      <Modal
+        title="什么是 HLS ?"
+        open={hlsHelpModalOpen}
+        onCancel={() => setHlsHelpModalOpen(false)}
+        footer={[
+          <Button key="close" type="primary" onClick={() => setHlsHelpModalOpen(false)}>
+            我知道了
+          </Button>,
+        ]}
+        width={560}
+      >
+        <div style={{ display: "grid", gap: 12, color: "#4b5563", lineHeight: "22px" }}>
+          <p style={{ margin: 0 }}>
+            HLS 是一种更适合在线播放的视频格式。你可以把它理解成：把一整个大视频拆成很多小片段，
+            播放器会按需一段一段地加载，而不是一次性硬拉完整文件。
+          </p>
+          <p style={{ margin: 0 }}>
+            这样做的好处是：拖动进度更顺、弱网更稳、浏览器兼容性更好，也更方便后面接入 CDN 或 Nginx 缓存。
+          </p>
+          <p style={{ margin: 0 }}>
+            这个模块的作用，就是把你选中的原始视频转成 HLS 资源。生成完成后，客户端会优先播放 HLS； 如果还没生成，或者
+            HLS 播放失败，客户端仍然会自动回退到原来的直链视频。
+          </p>
+          <div>
+            <div style={{ color: "#111827", fontWeight: 600, marginBottom: 6 }}>怎么配置 HLS ?</div>
+            <div>1. 先保存剧集，并确认视频文件已经选好。</div>
+            <div>2. 点“生成默认 HLS”会优先生成 720p；也可以按需单独生成 1080p、720p、360p。</div>
+            <div>3. 状态显示“生成中”时，说明后台正在处理，完成后这里会自动刷新。</div>
+            <div>4. 生成 HLS 的耗时取决于视频大小和服务器性能。</div>
+            <div>5. HLS 生成任务一般在几到十几分钟内结束，请耐心等待。</div>
+          </div>
         </div>
       </Modal>
 

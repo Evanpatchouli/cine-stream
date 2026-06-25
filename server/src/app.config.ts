@@ -47,6 +47,10 @@ export default class AppConfig {
     saveUninitialized: false,
   };
 
+  public static readonly Redis = {
+    URL: env.REDIS_URL || 'redis://127.0.0.1:6379',
+  };
+
   public static readonly SMTP = {
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
@@ -57,6 +61,10 @@ export default class AppConfig {
 
   public static readonly Media = {
     VIDEO_LIBRARY_ROOT: env.VIDEO_LIBRARY_ROOT || './media',
+    HLS_ROOT: path.resolve(
+      process.cwd(),
+      env.MEDIA_HLS_ROOT || './storage/hls',
+    ),
     FFMPEG_PATH: env.FFMPEG_PATH || ffmpegInstaller.path || 'ffmpeg',
     FFPROBE_PATH: env.FFPROBE_PATH || ffprobeInstaller.path || 'ffprobe',
     THUMBNAIL_TEMP_DIR: path.resolve(
@@ -75,4 +83,8 @@ export default class AppConfig {
       env.ALI_OSS_UPLOAD_OBJECT_PREFIX || 'cinestream/images',
     IMAGE_MAX_SIZE_MB: env.ALI_OSS_IMAGE_MAX_SIZE_MB || 10,
   };
+
+  public static readonly HlsQueue = {
+    NAME: 'episode-hls-build',
+  } as const;
 }

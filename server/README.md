@@ -64,6 +64,8 @@ ALI_OSS_IMAGE_MAX_SIZE_MB=10
 FFMPEG_PATH=
 FFPROBE_PATH=
 MEDIA_THUMBNAIL_TEMP_DIR=./storage/media-thumbnails
+MEDIA_HLS_ROOT=./storage/hls
+REDIS_URL=redis://127.0.0.1:6379
 ```
 
 生成的默认封面会先落到 `MEDIA_THUMBNAIL_TEMP_DIR` 临时目录，再通过现有 Ali OSS SDK 上传；剧集保存的是 OSS 返回的图片访问链接。
@@ -80,6 +82,35 @@ MEDIA_THUMBNAIL_TEMP_DIR=./storage/media-thumbnails
 - `Cache-Control`
 
 带 `Range` 请求头时会返回 `206 Partial Content`；无效范围会返回 `416 Requested Range Not Satisfiable`，同时带 `Content-Range: bytes */total`。
+
+### HLS
+
+管理端可以对单集手动生成 HLS：
+
+- `POST /api/admin/cines/episodes/:episodeId/hls/build`
+- `DELETE /api/admin/cines/episodes/:episodeId/hls`
+
+其中 `build` 接口现在返回 `202 Accepted`，表示任务已加入基于 Redis + BullMQ 的后台 HLS 队列；真正的 ffmpeg 转码会在请求返回后异步执行。管理端会根据 `hls_status` 轮询刷新状态。
+
+请求不带 `profile` 时，后端会默认优先生成 `720p`；如果源视频高度不足，会自动降到可用的默认档位。也可以显式指定：
+
+- `1080p`
+- `720p`
+- `360p`
+
+生成后的公开播放地址：
+
+- master playlist: `/media/hls/:episodeId/master.m3u8`
+- variant playlist / segment: `/media/hls/:episodeId/:profile/:fileName`
+
+当前 HLS 文件默认落在 `MEDIA_HLS_ROOT` 对应目录下的 `./storage/hls/<episodeId>/`，不修改原视频目录结构。
+
+当前后台任务模型是“Redis + BullMQ 单 worker 队列”：
+
+- 当前仅 HLS 转码队列使用 Redis；项目内其他 `cache` 相关能力保持原实现，不一起迁移
+- 同一时间串行执行 HLS 转码，避免多路 ffmpeg 抢占机器资源
+- 任务元数据落在 Redis 中，服务重启后待处理任务仍可继续由 BullMQ 接手；启动时也会对遗留 `processing` 状态做一次对账自愈
+- 当剧集 HLS 处于 `processing` 时，后端会阻止删除 HLS、删除影视，或更换该剧集的视频文件，避免转码与写盘互相冲突
 
 ## Compile and run the project
 

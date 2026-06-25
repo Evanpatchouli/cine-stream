@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import Hls from "hls.js";
 import { useNavigate, useParams } from "react-router-dom";
 import { Chip, LinearProgress, Slider, Snackbar, Switch, Typography } from "@mui/material";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
@@ -153,6 +154,7 @@ export function PlaybackPage() {
 
   const playerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const controlsHideTimerRef = useRef<number | null>(null);
   const lastSyncedPayloadRef = useRef<{
     episodeId: string;
@@ -243,7 +245,10 @@ export function PlaybackPage() {
 
   const nextEpisodeId = nextEpisode?.id || "";
 
-  const videoUrl = resolveMediaUrl(activeEpisode?.file_url);
+  const streamUrl = resolveMediaUrl(activeEpisode?.stream_url || activeEpisode?.file_url);
+  const hlsUrl = resolveMediaUrl(activeEpisode?.hls_url);
+  const videoUrl = hlsUrl || streamUrl;
+  const playbackSourceKey = [activeEpisodeId, hlsUrl, streamUrl].filter(Boolean).join("|");
 
   const posterUrl = resolveMediaUrl(cine?.backdrop) || resolveMediaUrl(cine?.poster) || MEDIA_PLACEHOLDERS.backdrop;
   const collectionButtonDisabled = !collectionsLoaded || collectionPending;
@@ -342,6 +347,11 @@ export function PlaybackPage() {
       if (longPressTimerRef.current !== null) {
         window.clearTimeout(longPressTimerRef.current);
       }
+
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
     };
   }, []);
 
@@ -396,7 +406,91 @@ export function PlaybackPage() {
 
     longPressActiveRef.current = false;
     longPressTriggeredRef.current = false;
-  }, [videoUrl]);
+  }, [playbackSourceKey]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+
+    const applyDirectSource = (url: string) => {
+      video.src = url;
+      video.load();
+      if (video.autoplay) {
+        video.play().catch(() => undefined);
+      }
+    };
+
+    const fallbackToStream = () => {
+      if (streamUrl) {
+        applyDirectSource(streamUrl);
+      }
+    };
+
+    if (!hlsUrl) {
+      fallbackToStream();
+      return () => undefined;
+    }
+
+    const supportsNativeHls =
+      video.canPlayType("application/vnd.apple.mpegurl") !== "";
+
+    if (supportsNativeHls) {
+      applyDirectSource(hlsUrl);
+      return () => undefined;
+    }
+
+    if (!Hls.isSupported()) {
+      fallbackToStream();
+      return () => undefined;
+    }
+
+    const hls = new Hls({
+      enableWorker: true,
+    });
+    hlsRef.current = hls;
+
+    hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+      hls.loadSource(hlsUrl);
+    });
+
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      if (video.autoplay) {
+        video.play().catch(() => undefined);
+      }
+    });
+
+    hls.on(Hls.Events.ERROR, (_, data) => {
+      if (!data.fatal) {
+        return;
+      }
+
+      hls.destroy();
+      if (hlsRef.current === hls) {
+        hlsRef.current = null;
+      }
+      fallbackToStream();
+    });
+
+    hls.attachMedia(video);
+
+    return () => {
+      hls.destroy();
+      if (hlsRef.current === hls) {
+        hlsRef.current = null;
+      }
+    };
+  }, [hlsUrl, streamUrl]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -770,9 +864,8 @@ export function PlaybackPage() {
         {videoUrl ? (
           <video
             ref={videoRef}
-            key={videoUrl}
+            key={playbackSourceKey || activeEpisodeId}
             className="h-full w-full object-cover"
-            src={videoUrl}
             poster={posterUrl}
             autoPlay
             muted={muted}

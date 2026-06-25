@@ -5,6 +5,16 @@ import { HydratedDocument, Types } from 'mongoose';
 export type CineDocument = HydratedDocument<Cine>;
 export type EpisodeVideoDocument = HydratedDocument<EpisodeVideo>;
 
+export type EpisodeHlsStatus = 'none' | 'processing' | 'ready' | 'failed';
+
+export interface EpisodeHlsVariant {
+  profile: '1080p' | '720p' | '360p';
+  width: number;
+  height: number;
+  bandwidth: number;
+  playlist_path: string;
+}
+
 @Schema({
   collection: 'episode_videos',
   toJSON: { virtuals: true },
@@ -46,6 +56,13 @@ export class EpisodeVideo {
   duration: string;
 
   @Prop({
+    type: Number,
+    default: 0,
+    min: 0,
+  })
+  duration_seconds: number;
+
+  @Prop({
     type: String,
     trim: true,
     default: '',
@@ -65,6 +82,55 @@ export class EpisodeVideo {
     default: '',
   })
   file_url: string;
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: 'none',
+  })
+  hls_status: EpisodeHlsStatus;
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: '',
+  })
+  hls_output_dir: string;
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: '',
+  })
+  hls_master_path: string;
+
+  @Prop({
+    type: [
+      {
+        profile: { type: String, required: true },
+        width: { type: Number, required: true },
+        height: { type: Number, required: true },
+        bandwidth: { type: Number, required: true },
+        playlist_path: { type: String, required: true, trim: true },
+      },
+    ],
+    default: [],
+  })
+  hls_variants: EpisodeHlsVariant[];
+
+  @Prop({
+    type: Number,
+    default: 0,
+    min: 0,
+  })
+  hls_updated_at: number;
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: '',
+  })
+  hls_last_error: string;
 
   @Prop({
     type: Number,

@@ -4,6 +4,18 @@ import axios, { AxiosError, type AxiosResponse } from "axios";
 
 const appBaseUrl = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8793/api";
 
+const appendTimestampParam = (params: unknown, timestamp: number) => {
+  if (params instanceof URLSearchParams) {
+    params.set("t", String(timestamp));
+    return params;
+  }
+
+  return {
+    ...(params && typeof params === "object" ? params : {}),
+    t: timestamp,
+  };
+};
+
 export interface ApiResponse<T = any> {
   code: number | string;
   message: string;
@@ -28,12 +40,20 @@ const joinBaseUrl = (baseUrl: string, subpath: string) => {
 };
 
 const createBaseRequest = (baseUrl?: string) => {
-  return axios.create({
+  const instance = axios.create({
     baseURL: baseUrl,
-    timeout: 5000,
+    timeout: 60000,
     withCredentials: false,
     validateStatus: (status) => status >= 200 && status < 600,
   });
+
+  instance.interceptors.request.use((config) => {
+    const timestamp = Date.now();
+    config.params = appendTimestampParam(config.params, timestamp);
+    return config;
+  });
+
+  return instance;
 };
 
 export const createAppRequest = (subpath = ""): any => {
@@ -41,7 +61,8 @@ export const createAppRequest = (subpath = ""): any => {
 
   instance.interceptors.request.use((config) => {
     const token = useAuthStore.getState().token;
-    config.headers["Timestamp"] = Date.now();
+    const timestamp = Date.now();
+    config.headers["Timestamp"] = timestamp;
     config.headers["X-Nonce"] = Math.random().toString(36).substring(2, 15);
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;

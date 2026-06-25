@@ -48,7 +48,9 @@ export interface EnvConfig {
   SMTP_PORT?: number;
   SMTP_USER?: string;
   SMTP_PASS?: string;
+  REDIS_URL?: string;
   VIDEO_LIBRARY_ROOT?: string;
+  MEDIA_HLS_ROOT?: string;
   FFMPEG_PATH?: string;
   FFPROBE_PATH?: string;
   MEDIA_THUMBNAIL_TEMP_DIR?: string;
@@ -142,7 +144,9 @@ export const env: EnvConfig = {
   SMTP_PORT: getEnv('SMTP_PORT', 465),
   SMTP_USER: getEnv('SMTP_USER', ''),
   SMTP_PASS: getEnv('SMTP_PASS', ''),
+  REDIS_URL: getEnv('REDIS_URL', 'redis://127.0.0.1:6379'),
   VIDEO_LIBRARY_ROOT: getEnv('VIDEO_LIBRARY_ROOT', './media'),
+  MEDIA_HLS_ROOT: getEnv('MEDIA_HLS_ROOT', './storage/hls'),
   FFMPEG_PATH: getEnv('FFMPEG_PATH', ''),
   FFPROBE_PATH: getEnv('FFPROBE_PATH', ''),
   MEDIA_THUMBNAIL_TEMP_DIR: getEnv(

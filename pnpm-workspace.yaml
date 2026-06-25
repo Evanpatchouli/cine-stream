@@ -11,6 +11,7 @@ allowBuilds:
   "@nestjs/core": set this to true or false
   "@scarf/scarf": set this to true or false
   ffmpeg-static: set this to true or false
+  msgpackr-extract: true
   unrs-resolver: set this to true or false
 
 minimumReleaseAge: 0

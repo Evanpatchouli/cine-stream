@@ -1,4 +1,5 @@
 import {
+  IsIn,
   IsArray,
   IsNotEmpty,
   IsOptional,
@@ -7,6 +8,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ToNumber } from '@/decorators/transform.decorator';
+import { HLS_PROFILE_VALUES } from './hls.util';
 
 export class QueryCinePageDto {
   @IsNotEmpty()
@@ -23,6 +25,10 @@ export class QueryCinePageDto {
 }
 
 export class EpisodeVideoInputDto {
+  @IsOptional()
+  @IsString()
+  id?: string;
+
   @IsNotEmpty()
   @IsString()
   name: string;
@@ -157,4 +163,11 @@ export class UpdateMediaRootDto {
   @IsNotEmpty()
   @IsString()
   root: string;
+}
+
+export class BuildEpisodeHlsDto {
+  @IsOptional()
+  @IsString()
+  @IsIn(HLS_PROFILE_VALUES)
+  profile?: string;
 }

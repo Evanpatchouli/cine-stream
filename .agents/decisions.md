@@ -68,6 +68,11 @@
 - 后端只返回根目录内的相对路径、绝对路径；客户端播放使用公开媒体地址 `/media/videos/:episodeId`，不再暴露 `/media-files/*` 静态目录，也不再通过 `/api/cines/episodes/:episodeId/stream` 播放。
 - 路径解析会阻止跳出视频根目录。
 - Nest 全局前缀继续使用 `/api`，但媒体播放路由显式排除在前缀之外，确保 `/media/*` 可以作为独立缓存边界供后续 Nginx 使用。
+- HLS 文件统一写入 `MEDIA_HLS_ROOT`（默认 `./storage/hls`）下的 `episodeId` 子目录，不回写原视频目录。
+- 阶段 2A 先做“单集手动生成 HLS”。客户端优先播放 `/media/hls/:episodeId/master.m3u8`，失败后自动回退 `/media/videos/:episodeId`。
+- HLS 生成接口改为 Redis + BullMQ 队列：`POST /api/admin/cines/episodes/:episodeId/hls/build` 只负责校验、入队并立即返回 `202`，真正的 ffmpeg 转码在后台串行执行。
+- 当前只迁移 HLS 转码队列到 Redis；项目内其他 `cache` 相关能力保持原实现，不与本轮改造绑定。
+- `hls_status=processing` 在阶段 2A 异步版中同时表示“已入队 / 正在处理”。管理端通过轮询刷新该状态，不额外引入 `queued` 字段。
 
 ## 环境变量
 
@@ -75,6 +80,16 @@
 - `admin`、`client`、`server` 提供 `.env.production`。
 - 后端 MongoDB 统一使用 `mongodb://mongodb:27017/cine-stream`。
 - MongoDB 用户名/密码为可选，连接串不带认证时不传 `user/pass`。
+- HLS 输出目录通过 `MEDIA_HLS_ROOT` 配置，默认 `./storage/hls`。
+- HLS 队列 Redis 连接通过 `REDIS_URL` 配置，默认 `redis://127.0.0.1:6379`。
+
+## 剧集保存
+
+- 管理端保存剧集时不再整批删除重建 episode 文档；若输入携带已有 `episode.id`，后端会尽量复用原文档，保留稳定的 episode id。
+- 当 episode 的 `file_path` 变更时，后端会清理该集已有 HLS 产物并重置 HLS 状态，避免新旧源文件混用同一套 HLS 元数据。
+- 若 episode 已有可用 HLS，后续补转某个档位失败时，不回滚整集到“完全不可用”；应保留其余可用 variant，并只清理失败档位对应产物。
+- 删除影视时要连带清理其全部 episode 的 HLS 目录，避免磁盘残留孤儿转码文件。
+- 当 episode 的 HLS 处于 `processing` 时，后端阻止删除 HLS、删除影视，以及更换该剧集的视频源文件，避免后台 ffmpeg 与管理操作冲突。
 
 ## 客户端素材
 

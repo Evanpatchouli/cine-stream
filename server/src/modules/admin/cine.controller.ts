@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Inject,
   Param,
   Post,
@@ -19,12 +20,14 @@ import { Auth, RoleIn } from '@/decorators/auth.decorator';
 import { Tag } from '@/decorators/tag.decorator';
 import { AliOssSdk, AliOssUploadResult } from '../oss-module/ali-oss.sdk';
 import {
+  BuildEpisodeHlsDto,
   CreateCineDto,
   QueryCinePageDto,
   ReplaceEpisodesDto,
   UpdateMediaRootDto,
   UpdateCineDto,
 } from '../cine-module/dto';
+import { EpisodeHlsJobService } from '../cine-module/episode-hls.job.service';
 import {
   CineService,
   MediaFileItem,
@@ -37,6 +40,7 @@ import {
 export class AdminCineController {
   constructor(
     @Inject() private readonly cineService: CineService,
+    @Inject() private readonly episodeHlsJobService: EpisodeHlsJobService,
     @Inject() private readonly aliOssSdk: AliOssSdk,
   ) {}
 
@@ -152,6 +156,29 @@ export class AdminCineController {
   ): Promise<Resp<Record<string, any>>> {
     const cine = await this.cineService.replaceEpisodes(id, dto.episodes);
     return Resp.success(cine);
+  }
+
+  @RoleIn('SUPER_ADMIN', 'CONTENT_ADMIN', 'OPERATOR')
+  @Post('episodes/:episodeId/hls/build')
+  @HttpCode(202)
+  async buildEpisodeHls(
+    @Param('episodeId') episodeId: string,
+    @Body() dto: BuildEpisodeHlsDto,
+  ): Promise<Resp<Record<string, any>>> {
+    const episode = await this.episodeHlsJobService.enqueueBuild(
+      episodeId,
+      dto.profile,
+    );
+    return Resp.success(episode);
+  }
+
+  @RoleIn('SUPER_ADMIN', 'CONTENT_ADMIN', 'OPERATOR')
+  @Delete('episodes/:episodeId/hls')
+  async deleteEpisodeHls(
+    @Param('episodeId') episodeId: string,
+  ): Promise<Resp<Record<string, any>>> {
+    const episode = await this.cineService.deleteEpisodeHls(episodeId);
+    return Resp.success(episode);
   }
 
   @RoleIn('SUPER_ADMIN', 'CONTENT_ADMIN')

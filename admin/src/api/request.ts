@@ -7,6 +7,18 @@ import { joinURL, withLeadingSlash, withoutTrailingSlash } from "ufo";
 
 const appBaseUrl = import.meta.env.VITE_APP_API_BASE_URL;
 
+const appendTimestampParam = (params: unknown, timestamp: number) => {
+  if (params instanceof URLSearchParams) {
+    params.set("t", String(timestamp));
+    return params;
+  }
+
+  return {
+    ...(params && typeof params === "object" ? params : {}),
+    t: timestamp,
+  };
+};
+
 // 定义通用的响应接口
 export interface ApiResponse<T = any> {
   code: number;
@@ -31,7 +43,7 @@ export interface ApiError {
 const createBaseRequest = (baseUrl?: string) => {
   const instance = axios.create({
     baseURL: baseUrl,
-    timeout: 5000,
+    timeout: 60000,
     withCredentials: true,
     validateStatus: (status) => {
       // 允许所有状态码，这样就不会自动抛出错误
@@ -39,20 +51,25 @@ const createBaseRequest = (baseUrl?: string) => {
     },
   });
 
+  instance.interceptors.request.use((config) => {
+    const timestamp = Date.now();
+    config.params = appendTimestampParam(config.params, timestamp);
+    return config;
+  });
+
   return instance;
 };
 
 export const createAppRequest = (subpath: string = "") => {
-  const baseUrl = withoutTrailingSlash(
-    withLeadingSlash(joinURL(appBaseUrl, subpath)),
-  );
+  const baseUrl = withoutTrailingSlash(withLeadingSlash(joinURL(appBaseUrl, subpath)));
   const instance = createBaseRequest(baseUrl);
 
   // 请求拦截器
   instance.interceptors.request.use(
     (config) => {
       const token = useLoginStore.getState().token;
-      config.headers["Timestamp"] = Date.now();
+      const timestamp = Date.now();
+      config.headers["Timestamp"] = timestamp;
       config.headers["X-Nonce"] = Math.random().toString(36).substring(2, 15);
       config.headers["Authorization"] = "Bearer " + (token ?? "");
       return config;
@@ -88,15 +105,7 @@ export const createAppRequest = (subpath: string = "") => {
       // message.error(error.message);
 
       // 返回一个拒绝的Promise，但带有完整的错误信息
-      return handleError(
-        new AxiosError(
-          error.message,
-          String(error.code),
-          error.config,
-          null,
-          response,
-        ),
-      );
+      return handleError(new AxiosError(error.message, String(error.code), error.config, null, response));
     },
     async (error: AxiosError) => {
       return handleError(error);
@@ -135,8 +144,7 @@ const handleError = (error: AxiosError) => {
   const response = error.response;
   const apiError: ApiError = {
     code: (response.data as any)?.code || response.status,
-    message:
-      (response.data as any)?.message || response.statusText || "请求失败",
+    message: (response.data as any)?.message || response.statusText || "请求失败",
     data: (response.data as any)?.data || response.data,
     timestamp: (response.data as any)?.timestamp,
     success: (response.data as any)?.success || false,

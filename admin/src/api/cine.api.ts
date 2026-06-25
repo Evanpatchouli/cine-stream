@@ -4,13 +4,32 @@ import { createAppRequest } from "./request";
 
 const appRequest = createAppRequest("/admin/cines");
 
+export type EpisodeHlsStatus = "none" | "processing" | "ready" | "failed";
+
+export interface EpisodeHlsVariant {
+  profile: "1080p" | "720p" | "360p";
+  width: number;
+  height: number;
+  bandwidth: number;
+  playlist_path: string;
+}
+
 export interface EpisodeInput {
+  id?: string;
   name: string;
   description?: string;
   duration?: string;
+  duration_seconds?: number;
   thumbnail?: string;
   file_path: string;
   file_url?: string;
+  stream_url?: string;
+  hls_url?: string;
+  hls_status?: EpisodeHlsStatus;
+  hls_variants?: EpisodeHlsVariant[];
+  hls_profiles?: Array<EpisodeHlsVariant["profile"]>;
+  hls_last_error?: string;
+  hls_updated_at?: number;
 }
 
 export interface CineRecord {
@@ -62,7 +81,7 @@ export const queryCinePage = (params: {
   page: number;
   size: number;
   keyword?: string;
-}): Promise<Resp<PaginatedResult<CineRecord>>> => appRequest.get("/", { params });
+}): Promise<Resp<PaginatedResult<CineRecord>>> => appRequest.get("", { params });
 
 export const createCine = (data: {
   name: string;
@@ -76,7 +95,7 @@ export const createCine = (data: {
   badge?: string;
   meta?: string;
   cast?: string[];
-}): Promise<Resp<CineRecord>> => appRequest.post("/", data);
+}): Promise<Resp<CineRecord>> => appRequest.post("", data);
 
 export const updateCine = (
   id: string,
@@ -95,15 +114,16 @@ export const updateCine = (
   },
 ): Promise<Resp<CineRecord>> => appRequest.put(`/${id}`, data);
 
-export const deleteCine = (id: string): Promise<Resp<void>> =>
-  appRequest.delete(`/${id}`);
+export const deleteCine = (id: string): Promise<Resp<void>> => appRequest.delete(`/${id}`);
 
-export const replaceEpisodes = (
-  id: string,
-  episodes: EpisodeInput[],
-): Promise<Resp<CineRecord>> => appRequest.put(`/${id}/episodes`, { episodes });
+export const getCineDetail = (id: string): Promise<Resp<CineRecord>> => appRequest.get(`/${id}`);
 
-export const listMediaFiles = (dir?: string): Promise<
+export const replaceEpisodes = (id: string, episodes: EpisodeInput[]): Promise<Resp<CineRecord>> =>
+  appRequest.put(`/${id}/episodes`, { episodes });
+
+export const listMediaFiles = (
+  dir?: string,
+): Promise<
   Resp<{
     root: string;
     configured_root: string;
@@ -115,16 +135,21 @@ export const listMediaFiles = (dir?: string): Promise<
 export const getMediaInfo = (filePath: string): Promise<Resp<MediaInfo>> =>
   appRequest.get("/media/info", { params: { path: filePath } });
 
-export const getMediaRoot = (): Promise<Resp<MediaRootSetting>> =>
-  appRequest.get("/media/root");
+export const getMediaRoot = (): Promise<Resp<MediaRootSetting>> => appRequest.get("/media/root");
 
 export const updateMediaRoot = (root: string): Promise<Resp<MediaRootSetting>> =>
   appRequest.put("/media/root", { root });
 
-export const uploadCineImage = (
-  file: File,
-): Promise<Resp<ImageUploadResult>> => {
+export const uploadCineImage = (file: File): Promise<Resp<ImageUploadResult>> => {
   const formData = new FormData();
   formData.append("file", file);
   return appRequest.post("/images", formData);
 };
+
+export const buildEpisodeHls = (
+  episodeId: string,
+  profile?: EpisodeHlsVariant["profile"],
+): Promise<Resp<EpisodeInput>> => appRequest.post(`/episodes/${episodeId}/hls/build`, profile ? { profile } : {});
+
+export const deleteEpisodeHls = (episodeId: string): Promise<Resp<EpisodeInput>> =>
+  appRequest.delete(`/episodes/${episodeId}/hls`);

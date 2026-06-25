@@ -56,6 +56,14 @@ class ApplicationStarter {
           path: 'media/videos/:episodeId',
           method: RequestMethod.ALL,
         },
+        {
+          path: 'media/hls/:episodeId/master.m3u8',
+          method: RequestMethod.ALL,
+        },
+        {
+          path: 'media/hls/:episodeId/:profile/:fileName',
+          method: RequestMethod.ALL,
+        },
       ],
     });
     // app.useGlobalFilters(new CatchGlobalExcenptionFilter(httpAdapter));

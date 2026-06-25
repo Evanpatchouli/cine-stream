@@ -42,13 +42,17 @@ pnpm dev:client
 - `MONGODB_URI`: 迁移脚本使用的 MongoDB 地址，本机直接运行后端时同样使用 `mongodb://127.0.0.1:27017/cine-stream`
 - `JWT_SECRET`: JWT 签名密钥
 - `APP_PORT`: 后端端口，当前为 `8793`
+- `REDIS_URL`: HLS 后台任务队列使用的 Redis 地址，默认 `redis://127.0.0.1:6379`
 - `VIDEO_LIBRARY_ROOT`: 服务器视频文件根目录，管理端配置剧集时从这里浏览文件
+- `MEDIA_HLS_ROOT`: HLS 输出目录，默认 `./storage/hls`
 
 `server/.env.production` 保留 Docker 网络服务名 `mongodb://mongodb:27017/cine-stream`。该地址只在后端同样运行在 Docker 网络内时可解析；如果在 Windows 主机直接运行 `pnpm dev:server`，必须使用 `127.0.0.1` 或 `localhost`。
 
 视频资源目录也可以在管理端“影视管理 -> 配置资源目录”中修改。修改后会写入 `server/storage/media-root.json`，管理端文件浏览和 `/media/videos/:episodeId` 剧集播放都会读取这个配置。
 
 剧集播放统一走公开媒体地址 `/media/videos/:episodeId`。后端会根据剧集记录的 `file_path` 从当前视频资源根目录读取文件，并返回支持 HTTP Range 的流式响应，便于浏览器 seek 和后续接入缓存层。
+
+管理端现在支持对单集手动生成 HLS。`POST /api/admin/cines/episodes/:episodeId/hls/build` 会先快速返回 `202 Accepted`，再由后端基于 Redis + BullMQ 的后台任务异步执行 ffmpeg；当前采用单 worker 串行转码，避免多路 ffmpeg 抢占机器资源。管理端会轮询 `hls_status` 刷新状态，并在 HLS 设置区提供“什么是 HLS？”说明弹窗。默认会优先生成 `720p`；也可以按需生成 `1080p` 或 `360p`。客户端播放时会优先尝试 HLS，失败后自动回退到直链视频。
 
 客户端参考 `client/.env.example`：
 
@@ -74,6 +78,7 @@ pnpm dev:client
 - 首页、收藏、历史、个人空间、播放页
 - 播放页按影视剧集顺序连续选择观看
 - 播放页视频流支持 HTTP Range，可拖动进度条按需加载
+- 播放页优先使用 HLS 播放，失败时自动回退直链视频
 - 移动端优先，基于 Stitch 页面视觉复刻
 
 ## 构建

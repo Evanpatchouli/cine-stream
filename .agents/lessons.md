@@ -12,6 +12,14 @@
 - 浏览器通常会拦截有声自动播放。播放页需要进入即播时，应使用 `autoPlay + muted + playsInline`，并在视频地址变化时通过稳定的 `key` 触发重新加载。
 - 视频播放不要直接把服务器磁盘文件映射成静态目录。更合适的是返回 episode stream API，由后端根据资源根目录和相对路径解析文件，校验不越界，并支持 Range 流式响应。
 - NestJS 如果全局前缀使用 `/api`，但又需要把媒体地址稳定暴露在 `/media/*` 供缓存层接入，可以通过 `app.setGlobalPrefix('api', { exclude: [...] })` 显式排除媒体路由，而不是把媒体接口继续混在 `/api` 命名空间里。
+- 如果剧集存在衍生资源（如 HLS、字幕、观看历史引用），保存剧集时不应继续采用“先删后建”的 replace 策略；应尽量复用已有 episode id，并只在源文件路径变化时清理衍生资源。
+- HLS 最小可用接入不一定要一开始就做多码率 ABR；先输出单集手动生成、固定档位、master playlist 统一入口，再让前端优先播放 HLS、失败回退 mp4，复杂度会低很多。
+- HLS 构建失败时不要无脑把整集状态置为 `failed`；如果库里已有可用档位，应优先保住旧 variant 和 master playlist，只回滚本次失败档位，避免一次补转把原本可播的 HLS 一起“打掉”。
+- 删除影视或剧集时，除了删数据库记录，还要同步清理落盘的 HLS 目录；否则磁盘会长期积累孤儿转码产物。
+- ffmpeg 这类长任务不要挂在普通 HTTP 请求里同步等待；先做“请求快速返回 + 进程内串行后台队列 + 前端轮询状态”，通常就是最小可交付的异步化路径。
+- BullMQ 接 TypeScript 项目时，优先直接传 `{ url: REDIS_URL }` 这类连接配置给 `Queue/Worker`，不要手动 new 一份外部 `ioredis` 实例；这样能避开 BullMQ 自带 `ioredis` 类型与业务依赖版本不一致造成的编译冲突。
+- BullMQ 自定义 `jobId` 不能包含 `:`；如果沿用 Redis key 风格命名，入队时会直接失败并抛 `Custom Id cannot contain :`。
+- 媒体衍生任务一旦异步化，就必须同时补上“危险编辑保护”：至少要拦住删影视、删 HLS、换视频源这类会和后台写盘直接冲突的操作。
 - 浏览器端用 axios 上传 `FormData` 时不要手写 `Content-Type: multipart/form-data`，让 axios/浏览器自动补 boundary 更稳。
 - Node 里把 `Buffer` 放进 `Blob` 可能触发 `ArrayBufferLike` 类型不兼容；先复制到标准 `Uint8Array` 再构造 `Blob` 可以通过 TypeScript 校验。
 - axios 响应拦截器如果返回自定义 `Resp`，TypeScript 仍按 `AxiosResponse` 推断，需要在封装边界显式声明返回 `any`，否则业务 API 返回类型会和 axios 默认类型冲突。

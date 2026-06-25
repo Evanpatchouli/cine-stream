@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -21,6 +22,7 @@ import {
 import {
   Cine,
   CineDocument,
+  EpisodeHlsVariant,
   EpisodeVideo,
   EpisodeVideoDocument,
 } from './cine.schema';
@@ -31,6 +33,16 @@ import {
 } from './dto';
 import { AliOssSdk } from '../oss-module/ali-oss.sdk';
 import { buildVideoEtag, resolveByteRange } from './video-stream.util';
+import {
+  buildHlsMasterPlaylist,
+  computeScaledWidth,
+  getHlsCacheControl,
+  getHlsContentType,
+  HLS_PROFILE_PRESETS,
+  HLS_PROFILE_VALUES,
+  HlsProfile,
+  resolveAutoHlsProfile,
+} from './hls.util';
 
 const VIDEO_EXTENSIONS = new Set([
   '.mp4',
@@ -83,6 +95,16 @@ export interface VideoResponseInfo {
   partial: boolean;
   etag: string;
   lastModified: string;
+}
+
+export interface StaticAssetStreamInfo {
+  absolutePath: string;
+  contentLength: number;
+  contentType: string;
+  cacheControl: string;
+  etag: string;
+  lastModified: string;
+  stream: ReturnType<typeof createReadStream>;
 }
 
 @Injectable()
@@ -186,6 +208,15 @@ export class CineService {
       throw new NotFoundException('影视不存在');
     }
 
+    const episodes = await this.episodeModel.find({ cine_id: cine._id }).exec();
+    if (episodes.some((episode) => episode.hls_status === 'processing')) {
+      throw new ConflictException('存在 HLS 生成中的剧集，暂不能删除影视');
+    }
+
+    await Promise.all(
+      episodes.map((episode) => this.deleteEpisodeHlsFiles(episode.id)),
+    );
+
     await Promise.all([
       this.episodeModel.deleteMany({ cine_id: cine._id }).exec(),
       this.cineModel.deleteOne({ _id: cine._id }).exec(),
@@ -201,31 +232,93 @@ export class CineService {
       throw new NotFoundException('影视不存在');
     }
 
-    await this.episodeModel.deleteMany({ cine_id: cine._id }).exec();
-
-    const docs = await this.episodeModel.insertMany(
-      await Promise.all(
-        episodes.map(async (episode, index) => {
-          const media = await this.readVideoMetadata(episode.file_path, {
-            extractThumbnail: !episode.thumbnail,
-          });
-          return {
-            cine_id: cine._id,
-            name: episode.name,
-            description: episode.description || '',
-            duration: media.duration,
-            thumbnail: episode.thumbnail || media.thumbnail,
-            file_path: episode.file_path,
-            file_url: episode.file_url || '',
-            sort_order: index,
-            created_at: Date.now(),
-            updated_at: Date.now(),
-          };
-        }),
-      ),
+    const existingEpisodes = await this.episodeModel
+      .find({ cine_id: cine._id })
+      .exec();
+    const existingMap = new Map(
+      existingEpisodes.map((episode) => [episode.id, episode] as const),
+    );
+    const nextDocs: EpisodeVideoDocument[] = [];
+    const nextInputIds = new Set(
+      episodes.map((episode) => episode.id).filter(Boolean) as string[],
+    );
+    const removedEpisodes = existingEpisodes.filter(
+      (episode) => !nextInputIds.has(episode.id),
     );
 
-    cine.episode_ids = docs.map((doc) => doc._id as Types.ObjectId);
+    if (removedEpisodes.some((episode) => episode.hls_status === 'processing')) {
+      throw new ConflictException('存在 HLS 生成中的剧集，暂不能删除');
+    }
+
+    for (const episodeInput of episodes) {
+      const existingEpisode = episodeInput.id
+        ? existingMap.get(episodeInput.id)
+        : undefined;
+      const sourceChanged = Boolean(
+        existingEpisode && existingEpisode.file_path !== episodeInput.file_path,
+      );
+
+      if (existingEpisode?.hls_status === 'processing' && sourceChanged) {
+        throw new ConflictException('剧集 HLS 生成中，暂不能更换视频文件');
+      }
+    }
+
+    for (const [index, episodeInput] of episodes.entries()) {
+      const media = await this.readVideoMetadata(episodeInput.file_path, {
+        extractThumbnail: !episodeInput.thumbnail,
+      });
+      const existingEpisode = episodeInput.id
+        ? existingMap.get(episodeInput.id)
+        : undefined;
+      const sourceChanged = Boolean(
+        existingEpisode && existingEpisode.file_path !== episodeInput.file_path,
+      );
+      const episode =
+        existingEpisode ||
+        new this.episodeModel({
+          cine_id: cine._id,
+          created_at: Date.now(),
+        });
+
+      episode.cine_id = cine._id;
+      episode.name = episodeInput.name;
+      episode.description = episodeInput.description || '';
+      episode.duration = media.duration;
+      episode.duration_seconds = media.duration_seconds;
+      episode.thumbnail = episodeInput.thumbnail || media.thumbnail;
+      episode.file_path = episodeInput.file_path;
+      episode.file_url = episodeInput.file_url || '';
+      episode.sort_order = index;
+      episode.updated_at = Date.now();
+
+      if (sourceChanged) {
+        await this.deleteEpisodeHlsFiles(episode.id);
+        this.resetEpisodeHlsState(episode);
+      }
+
+      await episode.save();
+      nextDocs.push(episode);
+    }
+
+    await Promise.all(
+      removedEpisodes.map(async (episode) => {
+        await this.deleteEpisodeHlsFiles(episode.id);
+      }),
+    );
+
+    if (removedEpisodes.length) {
+      await this.episodeModel
+        .deleteMany({
+          _id: {
+            $in: removedEpisodes.map(
+              (episode) => episode._id as Types.ObjectId,
+            ),
+          },
+        })
+        .exec();
+    }
+
+    cine.episode_ids = nextDocs.map((doc) => doc._id as Types.ObjectId);
     cine.updated_at = Date.now();
     await cine.save();
 
@@ -306,6 +399,264 @@ export class CineService {
     return updateVideoRootSetting(root);
   }
 
+  async prepareEpisodeHlsBuild(
+    episodeId: string,
+    requestedProfile?: string,
+  ): Promise<Record<string, any>> {
+    const { episode, absolutePath } = await this.getEpisodeSourceFile(episodeId);
+
+    if (episode.hls_status === 'processing') {
+      throw new ConflictException('当前剧集的 HLS 任务正在处理中');
+    }
+
+    const dimensions = await this.readVideoDimensionsByFfprobe(absolutePath);
+    if (!dimensions) {
+      throw new BadRequestException('无法读取视频分辨率，不能生成 HLS');
+    }
+
+    this.resolveHlsProfile(requestedProfile, dimensions.height);
+
+    episode.hls_status = 'processing';
+    episode.hls_last_error = '';
+    episode.updated_at = Date.now();
+    await episode.save();
+
+    return this.toEpisodeResponse(episode.toJSON());
+  }
+
+  async reconcileEpisodeHlsProcessingState(
+    isJobAlive: (episodeId: string) => Promise<boolean>,
+  ): Promise<void> {
+    const interruptedEpisodes = await this.episodeModel
+      .find({ hls_status: 'processing' })
+      .exec();
+
+    for (const episode of interruptedEpisodes) {
+      const jobAlive = await isJobAlive(episode.id);
+      if (jobAlive) {
+        continue;
+      }
+
+      const hasPlayableAssets = await this.hasPlayableEpisodeHlsFiles(episode);
+
+      if (hasPlayableAssets) {
+        episode.hls_status = 'ready';
+        episode.hls_last_error =
+          'Redis 队列中未找到对应任务，已保留现有可用 HLS。';
+        episode.updated_at = Date.now();
+        await episode.save();
+        continue;
+      }
+
+      await this.deleteEpisodeHlsFiles(episode.id);
+      this.resetEpisodeHlsState(episode);
+      episode.hls_status = 'failed';
+      episode.hls_last_error =
+        'Redis 队列中未找到对应任务，请重新生成。';
+      episode.updated_at = Date.now();
+      await episode.save();
+    }
+  }
+
+  async markEpisodeHlsEnqueueFailed(
+    episodeId: string,
+    errorMessage: string,
+  ): Promise<Record<string, any>> {
+    const episode = await this.getEpisodeByIdOrThrow(episodeId);
+    const safeMessage = errorMessage.slice(0, 500);
+
+    if (this.hasEpisodeHlsMetadata(episode)) {
+      episode.hls_status = 'ready';
+      episode.hls_last_error = safeMessage;
+      episode.updated_at = Date.now();
+      await episode.save();
+      return this.toEpisodeResponse(episode.toJSON());
+    }
+
+    this.resetEpisodeHlsState(episode);
+    episode.hls_status = 'failed';
+    episode.hls_last_error = safeMessage;
+    episode.updated_at = Date.now();
+    await episode.save();
+    return this.toEpisodeResponse(episode.toJSON());
+  }
+
+  async runEpisodeHlsBuild(
+    episodeId: string,
+    requestedProfile?: string,
+  ): Promise<Record<string, any>> {
+    const { episode, absolutePath } = await this.getEpisodeSourceFile(episodeId);
+    const previousVariants = [...(episode.hls_variants || [])];
+    const episodeRoot = this.getEpisodeHlsRootAbsolutePath(episode.id);
+    let profile: HlsProfile | null = null;
+    let profileDir = '';
+
+    try {
+      const dimensions = await this.readVideoDimensionsByFfprobe(absolutePath);
+      if (!dimensions) {
+        throw new BadRequestException('无法读取视频分辨率，不能生成 HLS');
+      }
+
+      profile = this.resolveHlsProfile(
+        requestedProfile,
+        dimensions.height,
+      );
+      const preset = HLS_PROFILE_PRESETS[profile];
+      profileDir = path.join(episodeRoot, profile);
+      const playlistAbsolutePath = path.join(profileDir, 'index.m3u8');
+      const segmentPattern = path.join(profileDir, 'segment_%03d.ts');
+      const scaledWidth = computeScaledWidth(
+        dimensions.width,
+        dimensions.height,
+        preset.height,
+      );
+
+      await fs.mkdir(profileDir, { recursive: true });
+      await execFileAsync(
+        AppConfig.Media.FFMPEG_PATH,
+        [
+          '-y',
+          '-i',
+          absolutePath,
+          '-map',
+          '0:v:0',
+          '-map',
+          '0:a:0?',
+          '-c:v',
+          'libx264',
+          '-preset',
+          'veryfast',
+          '-crf',
+          String(preset.crf),
+          '-vf',
+          `scale=-2:${preset.height}`,
+          '-c:a',
+          'aac',
+          '-b:a',
+          preset.audioBitrate,
+          '-ac',
+          '2',
+          '-start_number',
+          '0',
+          '-hls_time',
+          '6',
+          '-hls_playlist_type',
+          'vod',
+          '-hls_flags',
+          'independent_segments',
+          '-hls_segment_filename',
+          segmentPattern,
+          playlistAbsolutePath,
+        ],
+        { windowsHide: true },
+      );
+
+      const playlistStat = await fs.stat(playlistAbsolutePath).catch(() => null);
+      if (!playlistStat?.isFile()) {
+        throw new BadRequestException('HLS 清单文件生成失败');
+      }
+
+      const variant: EpisodeHlsVariant = {
+        profile,
+        width: scaledWidth,
+        height: preset.height,
+        bandwidth: preset.bandwidth,
+        playlist_path: `${profile}/index.m3u8`,
+      };
+
+      this.mergeEpisodeHlsVariant(episode, variant);
+      episode.hls_status = 'ready';
+      episode.hls_output_dir = episode.id;
+      episode.hls_master_path = 'master.m3u8';
+      episode.hls_updated_at = Date.now();
+      episode.hls_last_error = '';
+      episode.updated_at = Date.now();
+
+      await this.writeEpisodeHlsMasterPlaylist(episode);
+      await episode.save();
+
+      return this.toEpisodeResponse(episode.toJSON());
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message.slice(0, 500) : 'HLS 生成失败';
+
+      if (profileDir) {
+        await fs
+          .rm(profileDir, { recursive: true, force: true })
+          .catch(() => undefined);
+      }
+
+      const fallbackVariants = profile
+        ? previousVariants.filter((variant) => variant.profile !== profile)
+        : previousVariants;
+
+      if (fallbackVariants.length) {
+        episode.hls_status = 'ready';
+        episode.hls_output_dir = episode.id;
+        episode.hls_master_path = 'master.m3u8';
+        episode.hls_variants = fallbackVariants;
+        episode.hls_updated_at = Date.now();
+      } else {
+        await this.deleteEpisodeHlsFiles(episode.id);
+        episode.hls_status = 'failed';
+        episode.hls_output_dir = '';
+        episode.hls_master_path = '';
+        episode.hls_variants = [];
+        episode.hls_updated_at = 0;
+      }
+
+      episode.hls_last_error = errorMessage;
+      episode.updated_at = Date.now();
+
+      if (episode.hls_status === 'ready') {
+        await this.writeEpisodeHlsMasterPlaylist(episode);
+      }
+
+      await episode.save();
+      throw error;
+    }
+  }
+
+  async deleteEpisodeHls(episodeId: string): Promise<Record<string, any>> {
+    const episode = await this.getEpisodeByIdOrThrow(episodeId);
+    if (episode.hls_status === 'processing') {
+      throw new ConflictException('当前剧集的 HLS 任务正在处理中，暂不能删除');
+    }
+    await this.deleteEpisodeHlsFiles(episode.id);
+    this.resetEpisodeHlsState(episode);
+    episode.updated_at = Date.now();
+    await episode.save();
+    return this.toEpisodeResponse(episode.toJSON());
+  }
+
+  async createEpisodeHlsAssetStream(
+    episodeId: string,
+    assetPath: string,
+  ): Promise<StaticAssetStreamInfo> {
+    const episode = await this.getEpisodeByIdOrThrow(episodeId);
+    if (!this.hasEpisodeHlsMetadata(episode)) {
+      throw new NotFoundException('HLS 资源不存在');
+    }
+
+    const rootDir = this.getEpisodeHlsRootAbsolutePath(episode.id);
+    const normalizedPath = this.normalizeRelativePath(assetPath);
+    const absolutePath = this.resolveInsideDirectory(rootDir, normalizedPath);
+    const stat = await fs.stat(absolutePath).catch(() => null);
+    if (!stat?.isFile()) {
+      throw new NotFoundException('HLS 资源不存在');
+    }
+
+    return {
+      absolutePath,
+      contentLength: Number(stat.size),
+      contentType: getHlsContentType(normalizedPath),
+      cacheControl: getHlsCacheControl(normalizedPath),
+      etag: buildVideoEtag(Number(stat.size), Number(stat.mtimeMs)),
+      lastModified: stat.mtime.toUTCString(),
+      stream: createReadStream(absolutePath),
+    };
+  }
+
   private async withEpisodes(cine: CineDocument): Promise<Record<string, any>> {
     const episodeIds = (cine.episode_ids || []).map((id) => id.toString());
     const episodes = episodeIds.length
@@ -318,11 +669,7 @@ export class CineService {
       : [];
     const sortMap = new Map(episodeIds.map((id, index) => [id, index]));
     const orderedEpisodes = episodes
-      .map((episode) => episode.toJSON())
-      .map((episode) => ({
-        ...episode,
-        file_url: this.toEpisodeStreamUrl(episode.id),
-      }))
+      .map((episode) => this.toEpisodeResponse(episode.toJSON()))
       .sort((a, b) => {
         return (sortMap.get(a.id) || 0) - (sortMap.get(b.id) || 0);
       });
@@ -340,6 +687,10 @@ export class CineService {
       throw new BadRequestException('目录超出视频库根目录');
     }
     return target;
+  }
+
+  private resolveInsideDirectory(root: string, relativePath: string): string {
+    return this.resolveInsideRoot(root, relativePath);
   }
 
   private normalizeRelativePath(input: string): string {
@@ -462,7 +813,7 @@ export class CineService {
         { windowsHide: true },
       );
       const stat = await fs.stat(outputPath).catch(() => null);
-      return Boolean(stat?.isFile() && stat.size > 0);
+      return Boolean(stat?.isFile() && Number(stat.size) > 0);
     } catch {
       await fs.rm(outputPath, { force: true }).catch(() => undefined);
       return false;
@@ -491,6 +842,41 @@ export class CineService {
     }
   }
 
+  private async readVideoDimensionsByFfprobe(
+    filePath: string,
+  ): Promise<{ width: number; height: number } | null> {
+    try {
+      const { stdout } = await execFileAsync(
+        AppConfig.Media.FFPROBE_PATH,
+        [
+          '-v',
+          'error',
+          '-select_streams',
+          'v:0',
+          '-show_entries',
+          'stream=width,height',
+          '-of',
+          'json',
+          filePath,
+        ],
+        { windowsHide: true },
+      );
+      const payload = JSON.parse(stdout) as {
+        streams?: Array<{ width?: number; height?: number }>;
+      };
+      const stream = payload.streams?.[0];
+      if (!stream?.width || !stream?.height) {
+        return null;
+      }
+      return {
+        width: stream.width,
+        height: stream.height,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   private async readMp4Duration(filePath: string): Promise<number | null> {
     const ext = path.extname(filePath).toLowerCase();
     if (!['.mp4', '.m4v', '.mov'].includes(ext)) {
@@ -500,7 +886,7 @@ export class CineService {
     const file = await fs.open(filePath, 'r');
     try {
       const stat = await file.stat();
-      return this.findMvhdDuration(file, 0, stat.size);
+      return this.findMvhdDuration(file, 0, Number(stat.size));
     } finally {
       await file.close();
     }
@@ -540,7 +926,9 @@ export class CineService {
         return this.readMvhdDuration(file, contentStart, contentEnd);
       }
 
-      if (['moov', 'trak', 'mdia', 'minf', 'stbl', 'edts', 'udta'].includes(type)) {
+      if (
+        ['moov', 'trak', 'mdia', 'minf', 'stbl', 'edts', 'udta'].includes(type)
+      ) {
         const duration = await this.findMvhdDuration(
           file,
           contentStart,
@@ -618,19 +1006,8 @@ export class CineService {
     episodeId: string,
     range?: string,
   ): Promise<VideoResponseInfo> {
-    const episode = await this.episodeModel.findById(episodeId).exec();
-    if (!episode) {
-      throw new NotFoundException('剧集不存在');
-    }
-
-    const { root } = await getVideoRootSetting();
-    const absolutePath = this.resolveInsideRoot(root, episode.file_path);
-    const stat = await fs.stat(absolutePath).catch(() => null);
-    if (!stat?.isFile()) {
-      throw new NotFoundException('视频文件不存在');
-    }
-
-    const size = stat.size;
+    const { absolutePath, stat } = await this.getEpisodeSourceFile(episodeId);
+    const size = Number(stat.size);
     const { start, end, partial } = resolveByteRange(range, size);
 
     return {
@@ -641,9 +1018,27 @@ export class CineService {
       contentLength: end - start + 1,
       contentType: this.getVideoContentType(absolutePath),
       partial,
-      etag: buildVideoEtag(size, stat.mtimeMs),
+      etag: buildVideoEtag(size, Number(stat.mtimeMs)),
       lastModified: stat.mtime.toUTCString(),
     };
+  }
+
+  private async getEpisodeSourceFile(
+    episodeId: string,
+  ): Promise<{
+    episode: EpisodeVideoDocument;
+    absolutePath: string;
+    stat: Awaited<ReturnType<typeof fs.stat>>;
+  }> {
+    const episode = await this.getEpisodeByIdOrThrow(episodeId);
+    const { root } = await getVideoRootSetting();
+    const absolutePath = this.resolveInsideRoot(root, episode.file_path);
+    const stat = await fs.stat(absolutePath).catch(() => null);
+    if (!stat?.isFile()) {
+      throw new NotFoundException('视频文件不存在');
+    }
+
+    return { episode, absolutePath, stat };
   }
 
   private getVideoContentType(filePath: string): string {
@@ -661,7 +1056,140 @@ export class CineService {
     return map[ext] || 'application/octet-stream';
   }
 
+  private async getEpisodeByIdOrThrow(
+    episodeId: string,
+  ): Promise<EpisodeVideoDocument> {
+    const episode = await this.episodeModel.findById(episodeId).exec();
+    if (!episode) {
+      throw new NotFoundException('剧集不存在');
+    }
+    return episode;
+  }
+
+  private toEpisodeResponse(rawEpisode: Record<string, any>): Record<string, any> {
+    const streamUrl = this.toEpisodeStreamUrl(rawEpisode.id);
+    const hlsUrl =
+      this.hasEpisodeHlsMetadata(rawEpisode)
+        ? `${this.toEpisodeHlsMasterUrl(rawEpisode.id)}?v=${
+            rawEpisode.hls_updated_at || rawEpisode.updated_at || Date.now()
+          }`
+        : '';
+
+    return {
+      ...rawEpisode,
+      stream_url: streamUrl,
+      file_url: streamUrl,
+      hls_url: hlsUrl,
+      hls_profiles: (rawEpisode.hls_variants || []).map(
+        (variant: EpisodeHlsVariant) => variant.profile,
+      ),
+    };
+  }
+
   private toEpisodeStreamUrl(episodeId: string): string {
     return `/media/videos/${episodeId}`;
+  }
+
+  private toEpisodeHlsMasterUrl(episodeId: string): string {
+    return `/media/hls/${episodeId}/master.m3u8`;
+  }
+
+  private hasEpisodeHlsMetadata(
+    episode: Pick<
+      EpisodeVideoDocument,
+      'hls_output_dir' | 'hls_master_path' | 'hls_variants'
+    > | Record<string, any>,
+  ): boolean {
+    return Boolean(
+      episode.hls_output_dir &&
+        episode.hls_master_path &&
+        Array.isArray(episode.hls_variants) &&
+        episode.hls_variants.length,
+    );
+  }
+
+  private async hasPlayableEpisodeHlsFiles(
+    episode: EpisodeVideoDocument,
+  ): Promise<boolean> {
+    if (!this.hasEpisodeHlsMetadata(episode)) {
+      return false;
+    }
+
+    const rootDir = this.getEpisodeHlsRootAbsolutePath(episode.id);
+    const files = [
+      path.join(rootDir, episode.hls_master_path),
+      ...(episode.hls_variants || []).map((variant) =>
+        path.join(rootDir, variant.playlist_path),
+      ),
+    ];
+    const stats = await Promise.all(
+      files.map((filePath) => fs.stat(filePath).catch(() => null)),
+    );
+    return stats.every((stat) => stat?.isFile());
+  }
+
+  private resolveHlsProfile(
+    requestedProfile: string | undefined,
+    sourceHeight: number,
+  ): HlsProfile {
+    if (requestedProfile) {
+      if (!HLS_PROFILE_VALUES.includes(requestedProfile as HlsProfile)) {
+        throw new BadRequestException('不支持的 HLS 档位');
+      }
+
+      const profile = requestedProfile as HlsProfile;
+      if (sourceHeight < HLS_PROFILE_PRESETS[profile].height) {
+        throw new BadRequestException(
+          `源视频高度不足，不能生成 ${profile} HLS`,
+        );
+      }
+
+      return profile;
+    }
+
+    const autoProfile = resolveAutoHlsProfile(sourceHeight);
+    if (!autoProfile) {
+      throw new BadRequestException('源视频分辨率过低，不能生成默认 HLS');
+    }
+
+    return autoProfile;
+  }
+
+  private getEpisodeHlsRootAbsolutePath(episodeId: string): string {
+    return path.join(AppConfig.Media.HLS_ROOT, episodeId);
+  }
+
+  private resetEpisodeHlsState(episode: EpisodeVideoDocument): void {
+    episode.hls_status = 'none';
+    episode.hls_output_dir = '';
+    episode.hls_master_path = '';
+    episode.hls_variants = [];
+    episode.hls_updated_at = 0;
+    episode.hls_last_error = '';
+  }
+
+  private mergeEpisodeHlsVariant(
+    episode: EpisodeVideoDocument,
+    nextVariant: EpisodeHlsVariant,
+  ): void {
+    const variants = (episode.hls_variants || []).filter(
+      (variant) => variant.profile !== nextVariant.profile,
+    );
+    variants.push(nextVariant);
+    episode.hls_variants = variants.sort((left, right) => right.height - left.height);
+  }
+
+  private async writeEpisodeHlsMasterPlaylist(
+    episode: EpisodeVideoDocument,
+  ): Promise<void> {
+    const rootDir = this.getEpisodeHlsRootAbsolutePath(episode.id);
+    await fs.mkdir(rootDir, { recursive: true });
+    const content = buildHlsMasterPlaylist(episode.hls_variants || []);
+    await fs.writeFile(path.join(rootDir, 'master.m3u8'), content, 'utf8');
+  }
+
+  private async deleteEpisodeHlsFiles(episodeId: string): Promise<void> {
+    const rootDir = this.getEpisodeHlsRootAbsolutePath(episodeId);
+    await fs.rm(rootDir, { recursive: true, force: true }).catch(() => undefined);
   }
 }

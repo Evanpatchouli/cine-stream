@@ -4,7 +4,12 @@ export interface Episode {
   description?: string;
   file_path?: string;
   file_url?: string;
+  stream_url?: string;
+  hls_url?: string;
+  hls_status?: "none" | "processing" | "ready" | "failed";
+  hls_profiles?: Array<"1080p" | "720p" | "360p">;
   duration?: string;
+  duration_seconds?: number;
   thumbnail?: string;
   progress?: number;
 }
