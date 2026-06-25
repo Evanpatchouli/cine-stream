@@ -1,5 +1,5 @@
-import { Button, Result } from 'antd';
-import { useNavigate } from 'react-router';
+import { Button, Result } from "antd";
+import { useNavigate } from "react-router";
 
 export default function Forbidden() {
   const navigate = useNavigate();
@@ -7,10 +7,10 @@ export default function Forbidden() {
   return (
     <Result
       status="403"
-      title="403 - Webapp"
+      title="403 - Cine Stream"
       subTitle="抱歉，您没有权限访问此页面"
       extra={
-        <Button type="primary" onClick={() => navigate('/')}>
+        <Button type="primary" onClick={() => navigate("/")}>
           返回首页
         </Button>
       }

@@ -20,7 +20,7 @@ const transporter = nodemailer.createTransport({
 });
 
 const EmailSubjectMap = {
-  [OPTWay.EMAIL_LOGIN]: 'Webapp 登录验证邮件',
+  [OPTWay.EMAIL_LOGIN]: 'Cine Stream 登录验证邮件',
 };
 
 @Injectable()
@@ -44,7 +44,7 @@ export default class EmailService {
     if (!to) throw new IllegalArgument('接收者邮箱地址不能为空');
     await this.sendEmail(to, {
       subject: EmailSubjectMap[optType],
-      text: `您正在通过邮箱登录 Webapp，您的验证码为：${opt}，30分钟内有效，请勿将验证码告知他人，如不是本人请忽略本邮件。`,
+      text: `您正在通过邮箱登录 Cine Stream，您的验证码为：${opt}，30分钟内有效，请勿将验证码告知他人，如不是本人请忽略本邮件。`,
     });
   }
 

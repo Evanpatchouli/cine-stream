@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import * as RoleAPI from "@/api/role.api";
-import type {
-  AsyncReturnType,
-  NonNull,
-  PaginatedResult,
-} from "@cine-stream/common";
+import type { AsyncReturnType, NonNull, PaginatedResult } from "@cine-stream/common";
 import { Pagination, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import USpan from "@/components/unimportant/uspan";
@@ -13,12 +9,10 @@ import Flex from "@/components/Flex";
 import { BaseTableView } from "@/components/layouts/BaseTableView";
 import { useTitle } from "@evanpatchouli/react-hooks-kit";
 
-type Role = NonNull<
-  AsyncReturnType<typeof RoleAPI.queryRolePage>["data"]
->["list"][number];
+type Role = NonNull<AsyncReturnType<typeof RoleAPI.queryRolePage>["data"]>["list"][number];
 
 export default function RoleView() {
-  useTitle("角色管理 - WebApp");
+  useTitle("角色管理 - Cine Stream");
   const [rolePage, setRolePage] = useState<PaginatedResult<Role>>({
     list: [] as any,
     page: 1,
@@ -39,8 +33,7 @@ export default function RoleView() {
       title: "角色编码",
       dataIndex: "role_code",
       width: 180,
-      render: (text) =>
-        text ? <Tag color="blue">{text}</Tag> : <USpan>-</USpan>,
+      render: (text) => (text ? <Tag color="blue">{text}</Tag> : <USpan>-</USpan>),
     },
     {
       title: "角色描述",
@@ -76,13 +69,7 @@ export default function RoleView() {
   const tableY = BaseTableView.useTableHeight(); // 设置表格高度
   return (
     <BaseTableView>
-      <Table
-        dataSource={rolePage.list}
-        rowKey={"id"}
-        columns={columns}
-        pagination={false}
-        scroll={{ y: tableY }}
-      />
+      <Table dataSource={rolePage.list} rowKey={"id"} columns={columns} pagination={false} scroll={{ y: tableY }} />
       <Pagination
         pageSize={rolePage.size}
         total={rolePage.total}

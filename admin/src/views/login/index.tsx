@@ -15,28 +15,20 @@ enum LoginMode {
 }
 
 export default function LoginView() {
-  useTitle("登录 - WebApp");
+  useTitle("登录 - Cine Stream");
   const [mode, setMode] = useState<LoginMode>(LoginMode.FORM);
 
   return (
     <div style={styles.container}>
-      <Card
-        style={styles.actionCard}
-        styles={{ body: styles.actionCardBody }}
-        variant="borderless"
-      >
+      <Card style={styles.actionCard} styles={{ body: styles.actionCardBody }} variant="borderless">
         {/* 右上角折角切换按钮 */}
         <div
           style={styles.corner}
-          onClick={() =>
-            setMode(mode === LoginMode.FORM ? LoginMode.QRCODE : LoginMode.FORM)
-          }
+          onClick={() => setMode(mode === LoginMode.FORM ? LoginMode.QRCODE : LoginMode.FORM)}
           title={mode === LoginMode.FORM ? "切换扫码登录" : "切换账号登录"}
         >
           <div style={styles.ribbon} />
-          <div style={styles.icon}>
-            {mode === LoginMode.FORM ? <QrcodeOutlined /> : <DesktopOutlined />}
-          </div>
+          <div style={styles.icon}>{mode === LoginMode.FORM ? <QrcodeOutlined /> : <DesktopOutlined />}</div>
         </div>
 
         <Row style={{ flex: 1 }}>
@@ -46,9 +38,7 @@ export default function LoginView() {
               <Title level={3} style={{ color: "#fff", margin: 0 }}>
                 {APP_NAME}
               </Title>
-              <Text style={{ color: "rgba(255,255,255,0.8)" }}>
-                {SYSTEM_NAME}
-              </Text>
+              <Text style={{ color: "rgba(255,255,255,0.8)" }}>{SYSTEM_NAME}</Text>
             </div>
           </Col>
 

@@ -1,5 +1,5 @@
-import { Button, Result } from 'antd';
-import { useNavigate } from 'react-router';
+import { Button, Result } from "antd";
+import { useNavigate } from "react-router";
 
 export default function NotFound() {
   const navigate = useNavigate();
@@ -7,10 +7,10 @@ export default function NotFound() {
   return (
     <Result
       status="404"
-      title="404 - Webapp"
+      title="404 - Cine Stream"
       subTitle="抱歉，您访问的页面不存在"
       extra={
-        <Button type="primary" onClick={() => navigate('/')}>
+        <Button type="primary" onClick={() => navigate("/")}>
           返回首页
         </Button>
       }

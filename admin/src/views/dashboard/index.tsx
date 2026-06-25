@@ -29,7 +29,7 @@ export default function DashboardView() {
   const [trendData, setTrendData] = useState<DailyLoginData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  useTitle("仪表盘 - WebApp");
+  useTitle("仪表盘 - Cine Stream");
 
   useAsyncEffect(async () => {
     setLoading(true);
@@ -139,10 +139,7 @@ export default function DashboardView() {
       align: "center",
       sorter: (a, b) => a.growth - b.growth,
       render: (value) => (
-        <Tag
-          color={value >= 0 ? "success" : "error"}
-          icon={value >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-        >
+        <Tag color={value >= 0 ? "success" : "error"} icon={value >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}>
           {value >= 0 ? "+" : ""}
           {value}%
         </Tag>
@@ -223,16 +220,11 @@ export default function DashboardView() {
       {/* 统计数据卡片 */}
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={6}>
-          <Card
-            bordered={false}
-            style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
-          >
+          <Card bordered={false} style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <Statistic
               title={
                 <span>
-                  <FieldTimeOutlined
-                    style={{ marginRight: 8, color: "#1890ff" }}
-                  />
+                  <FieldTimeOutlined style={{ marginRight: 8, color: "#1890ff" }} />
                   今日登录
                 </span>
               }
@@ -244,16 +236,11 @@ export default function DashboardView() {
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card
-            bordered={false}
-            style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
-          >
+          <Card bordered={false} style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <Statistic
               title={
                 <span>
-                  <CalendarOutlined
-                    style={{ marginRight: 8, color: "#52c41a" }}
-                  />
+                  <CalendarOutlined style={{ marginRight: 8, color: "#52c41a" }} />
                   本周登录
                 </span>
               }
@@ -265,16 +252,11 @@ export default function DashboardView() {
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card
-            bordered={false}
-            style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
-          >
+          <Card bordered={false} style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <Statistic
               title={
                 <span>
-                  <CalendarOutlined
-                    style={{ marginRight: 8, color: "#fa8c16" }}
-                  />
+                  <CalendarOutlined style={{ marginRight: 8, color: "#fa8c16" }} />
                   本月登录
                 </span>
               }
@@ -286,10 +268,7 @@ export default function DashboardView() {
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card
-            bordered={false}
-            style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
-          >
+          <Card bordered={false} style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <Statistic
               title={
                 <span>
@@ -320,15 +299,9 @@ export default function DashboardView() {
             </Row>
             <Row gutter={[16, 16]}>
               <Col span={24}>
-                <Card
-                  bordered={false}
-                  style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
-                >
+                <Card bordered={false} style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
                   <div style={{ height: 400 }}>
-                    <EChartsReact
-                      option={lineChartOption}
-                      showLoading={loading}
-                    />
+                    <EChartsReact option={lineChartOption} showLoading={loading} />
                   </div>
                 </Card>
               </Col>
@@ -347,10 +320,7 @@ export default function DashboardView() {
             </Row>
             <Row gutter={[16, 16]}>
               <Col span={24}>
-                <Card
-                  bordered={false}
-                  style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
-                >
+                <Card bordered={false} style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
                   <Table
                     columns={statisticsColumns}
                     dataSource={statisticsData}
@@ -371,13 +341,7 @@ export default function DashboardView() {
                   title="每日明细"
                   extra={<Tag color="blue">近7日</Tag>}
                 >
-                  <Table
-                    columns={columns}
-                    dataSource={trendData}
-                    pagination={false}
-                    size="small"
-                    loading={loading}
-                  />
+                  <Table columns={columns} dataSource={trendData} pagination={false} size="small" loading={loading} />
                 </Card>
               </Col>
             </Row>

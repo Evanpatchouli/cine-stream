@@ -1,10 +1,6 @@
 import { Card, Space, Divider, Tag } from "antd";
 import { useLoginStore } from "@/auth/store";
-import {
-  usePermissionChecker,
-  useHasPermission,
-  useIsSuperAdmin,
-} from "@/auth/hooks";
+import { usePermissionChecker, useHasPermission, useIsSuperAdmin } from "@/auth/hooks";
 import AuthWrapper from "@/components/AuthWrapper";
 import AuthButton from "@/components/AuthButton";
 import { PERMISSIONS, ROLES } from "@/constants/permissions";
@@ -14,7 +10,7 @@ import { useTitle } from "@evanpatchouli/react-hooks-kit";
  * 权限控制使用示例页面
  */
 export default function PermissionDemo() {
-  useTitle("权限示例 - WebApp");
+  useTitle("权限示例 - Cine Stream");
   const { userInfo } = useLoginStore();
   const checker = usePermissionChecker();
   const canManageCine = useHasPermission(PERMISSIONS.CINE_MANAGE);
@@ -50,9 +46,7 @@ export default function PermissionDemo() {
         </p>
         <p>
           <strong>是否超级管理员:</strong>{" "}
-          <Tag color={isSuperAdmin ? "red" : "default"}>
-            {isSuperAdmin ? "是" : "否"}
-          </Tag>
+          <Tag color={isSuperAdmin ? "red" : "default"}>{isSuperAdmin ? "是" : "否"}</Tag>
         </p>
       </Card>
 
@@ -84,10 +78,7 @@ export default function PermissionDemo() {
       <Divider />
 
       {/* 示例2: 使用 AuthWrapper 组件 */}
-      <Card
-        title="示例2: 使用 AuthWrapper 组件"
-        style={{ marginBottom: "24px" }}
-      >
+      <Card title="示例2: 使用 AuthWrapper 组件" style={{ marginBottom: "24px" }}>
         <Space orientation="vertical" style={{ width: "100%" }}>
           <div>
             <strong>有权限时显示:</strong>
@@ -111,16 +102,9 @@ export default function PermissionDemo() {
       <Divider />
 
       {/* 示例3: 使用 AuthButton 组件 */}
-      <Card
-        title="示例3: 使用 AuthButton 组件"
-        style={{ marginBottom: "24px" }}
-      >
+      <Card title="示例3: 使用 AuthButton 组件" style={{ marginBottom: "24px" }}>
         <Space>
-          <AuthButton
-            type="primary"
-            permission={PERMISSIONS.CINE_CREATE}
-            onClick={() => alert("创建影视")}
-          >
+          <AuthButton type="primary" permission={PERMISSIONS.CINE_CREATE} onClick={() => alert("创建影视")}>
             创建影视
           </AuthButton>
 
@@ -146,10 +130,7 @@ export default function PermissionDemo() {
             </div>
           )}
 
-          {checker.hasPermission([
-            PERMISSIONS.SYSTEM_USER_EDIT,
-            PERMISSIONS.SYSTEM_USER_DISABLE,
-          ]) && (
+          {checker.hasPermission([PERMISSIONS.SYSTEM_USER_EDIT, PERMISSIONS.SYSTEM_USER_DISABLE]) && (
             <div>
               <Tag color="purple">您有编辑或禁用用户权限（任意一个）</Tag>
             </div>
