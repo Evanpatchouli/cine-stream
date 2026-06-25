@@ -2,6 +2,10 @@
 
 ## 当前状态
 
+- 2026-06-26：阶段 1 媒体访问性能优化已完成。剧集公开播放地址已从 `/api/cines/episodes/:episodeId/stream` 迁移到 `/media/videos/:episodeId`；后端新增独立 `MediaController`，并通过 `main.ts` 将该路由排除在全局 `/api` 前缀之外。
+- 2026-06-26：`/media/videos/:episodeId` 已补齐 Range 加固和缓存友好响应头，支持 `GET` / `HEAD`、`Accept-Ranges`、`ETag`、`Last-Modified`、`Cache-Control`；无效 Range 现在返回 `416`，并带 `Content-Range: bytes */total`。
+- 2026-06-26：客户端媒体 URL 解析已支持 `/media/*` 前缀，播放页无需改业务逻辑即可消费新的媒体地址。
+- 2026-06-26：server Jest 已补 `^@/(.*)$ -> <rootDir>/$1` 路径映射，新的媒体控制器/Range 工具测试可直接导入带 `@/` 别名的源码文件。
 - 2026-06-25：客户端观看进度已改为真实数据链路。后端按 `position_seconds` / `duration_seconds` 归一化 `watch_history.progress`，客户端首页继续观看、观看历史、播放页剧集列表统一显示真实进度，不再使用固定占位百分比。
 - 2026-06-25：播放页已支持真实续播。页面会先拉取当前影视下的个人观看历史，并在“历史已加载 + 视频元数据已就绪”后恢复到上次观看秒数；已修复历史晚于视频返回时仍从头播放的问题。
 - 2026-06-25：后端新增 `GET /api/watch/cines/:cineId/history`，供播放页按影视维度回填剧集进度和自动定位上次观看剧集。
@@ -63,6 +67,9 @@
 
 ## 验证结果
 
+- 本轮 `pnpm --filter @cine-stream/server test -- media.controller.spec.ts video-stream.util.spec.ts` 通过。
+- 本轮 `pnpm --filter @cine-stream/server build` 通过。
+- 本轮 `pnpm --filter @cine-stream/client build` 通过；仍有既有 chunk size warning，不影响产物。
 - 本轮 `pnpm --filter @cine-stream/server test -- watch-progress.spec.ts` 通过。
 - 本轮 `pnpm --filter @cine-stream/server build` 通过。
 - 本轮 `pnpm --filter @cine-stream/client build` 通过；用户人工测试确认重新进入播放页时可按上次位置正常续播。
@@ -87,6 +94,8 @@
 
 ## 注意事项
 
+- 当前只完成了直链媒体阶段；尚未实现 HLS、多码率转码、Nginx 缓存和 `/media/hls/*` 路由。
+- `MediaController` 的控制器单测覆盖了 `/media/videos/:episodeId` 的 GET / HEAD / 416 行为，但本轮没有启动真实服务做 `curl` 级联调。
 - 当前“已看完”阈值为进度达到 98% 或剩余时长不超过 3 秒；此类记录不会再从片尾附近续播。
 - 前端仍有 Vite chunk size 警告，属于体积优化提醒，不影响构建产物。
 - 原生视频全屏按钮的 CSS 隐藏规则主要覆盖 Chromium / WebKit。若某些浏览器仍显示并允许使用原生 video 全屏按钮，只有通过页面内“全屏播放 / 切换到影院视图”入口进入全屏时，才能保证连播提示层显示。

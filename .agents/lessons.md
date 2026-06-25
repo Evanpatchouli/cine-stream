@@ -11,6 +11,7 @@
 - 跨设备访问前后端不同端口时仍是跨源请求，server 的 `CORS_ORIGIN` 需要包含手机实际打开的前端 origin，例如 `http://192.168.1.3:5210`。
 - 浏览器通常会拦截有声自动播放。播放页需要进入即播时，应使用 `autoPlay + muted + playsInline`，并在视频地址变化时通过稳定的 `key` 触发重新加载。
 - 视频播放不要直接把服务器磁盘文件映射成静态目录。更合适的是返回 episode stream API，由后端根据资源根目录和相对路径解析文件，校验不越界，并支持 Range 流式响应。
+- NestJS 如果全局前缀使用 `/api`，但又需要把媒体地址稳定暴露在 `/media/*` 供缓存层接入，可以通过 `app.setGlobalPrefix('api', { exclude: [...] })` 显式排除媒体路由，而不是把媒体接口继续混在 `/api` 命名空间里。
 - 浏览器端用 axios 上传 `FormData` 时不要手写 `Content-Type: multipart/form-data`，让 axios/浏览器自动补 boundary 更稳。
 - Node 里把 `Buffer` 放进 `Blob` 可能触发 `ArrayBufferLike` 类型不兼容；先复制到标准 `Uint8Array` 再构造 `Blob` 可以通过 TypeScript 校验。
 - axios 响应拦截器如果返回自定义 `Resp`，TypeScript 仍按 `AxiosResponse` 推断，需要在封装边界显式声明返回 `any`，否则业务 API 返回类型会和 axios 默认类型冲突。

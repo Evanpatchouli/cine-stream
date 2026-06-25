@@ -46,7 +46,9 @@ pnpm dev:client
 
 `server/.env.production` 保留 Docker 网络服务名 `mongodb://mongodb:27017/cine-stream`。该地址只在后端同样运行在 Docker 网络内时可解析；如果在 Windows 主机直接运行 `pnpm dev:server`，必须使用 `127.0.0.1` 或 `localhost`。
 
-视频资源目录也可以在管理端“影视管理 -> 配置资源目录”中修改。修改后会写入 `server/storage/media-root.json`，文件浏览接口和 `/media-files/*` 视频访问都会读取这个配置。
+视频资源目录也可以在管理端“影视管理 -> 配置资源目录”中修改。修改后会写入 `server/storage/media-root.json`，管理端文件浏览和 `/media/videos/:episodeId` 剧集播放都会读取这个配置。
+
+剧集播放统一走公开媒体地址 `/media/videos/:episodeId`。后端会根据剧集记录的 `file_path` 从当前视频资源根目录读取文件，并返回支持 HTTP Range 的流式响应，便于浏览器 seek 和后续接入缓存层。
 
 客户端参考 `client/.env.example`：
 
@@ -71,6 +73,7 @@ pnpm dev:client
 - 强制登录
 - 首页、收藏、历史、个人空间、播放页
 - 播放页按影视剧集顺序连续选择观看
+- 播放页视频流支持 HTTP Range，可拖动进度条按需加载
 - 移动端优先，基于 Stitch 页面视觉复刻
 
 ## 构建

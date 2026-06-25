@@ -7,6 +7,7 @@ import {
   EpisodeVideoSchema,
 } from './cine.schema';
 import { CineController } from './cine.controller';
+import { MediaController } from './media.controller';
 import { CineService } from './cine.service';
 import { OssModule } from '../oss-module';
 
@@ -18,7 +19,7 @@ import { OssModule } from '../oss-module';
       { name: EpisodeVideo.name, schema: EpisodeVideoSchema },
     ]),
   ],
-  controllers: [CineController],
+  controllers: [CineController, MediaController],
   providers: [CineService],
   exports: [CineService],
 })

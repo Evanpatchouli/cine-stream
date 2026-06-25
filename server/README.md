@@ -68,6 +68,19 @@ MEDIA_THUMBNAIL_TEMP_DIR=./storage/media-thumbnails
 
 生成的默认封面会先落到 `MEDIA_THUMBNAIL_TEMP_DIR` 临时目录，再通过现有 Ali OSS SDK 上传；剧集保存的是 OSS 返回的图片访问链接。
 
+### 媒体播放
+
+剧集视频统一通过公开地址 `/media/videos/:episodeId` 播放，不再走 `/api` 前缀。该接口会根据剧集 `file_path` 从视频资源根目录读取文件，并返回支持 HTTP Range 的流式响应，包含：
+
+- `Accept-Ranges: bytes`
+- `Content-Length`
+- `Content-Type`
+- `ETag`
+- `Last-Modified`
+- `Cache-Control`
+
+带 `Range` 请求头时会返回 `206 Partial Content`；无效范围会返回 `416 Requested Range Not Satisfiable`，同时带 `Content-Range: bytes */total`。
+
 ## Compile and run the project
 
 ```bash

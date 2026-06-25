@@ -65,8 +65,9 @@
 ## 视频文件
 
 - 视频文件不上传，管理端从 `VIDEO_LIBRARY_ROOT` 浏览服务器磁盘文件。
-- 后端只返回根目录内的相对路径、绝对路径；客户端播放使用公开 episode stream API，不再暴露 `/media-files/*` 静态目录。
+- 后端只返回根目录内的相对路径、绝对路径；客户端播放使用公开媒体地址 `/media/videos/:episodeId`，不再暴露 `/media-files/*` 静态目录，也不再通过 `/api/cines/episodes/:episodeId/stream` 播放。
 - 路径解析会阻止跳出视频根目录。
+- Nest 全局前缀继续使用 `/api`，但媒体播放路由显式排除在前缀之外，确保 `/media/*` 可以作为独立缓存边界供后续 Nginx 使用。
 
 ## 环境变量
 

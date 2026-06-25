@@ -1,7 +1,6 @@
-import { Controller, Get, Header, Inject, Param, Req, Res } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import { Controller, Get, Inject, Param } from '@nestjs/common';
 import Resp from '@/common/models/Resp';
-import { Auth, Public } from '@/decorators/auth.decorator';
+import { Auth } from '@/decorators/auth.decorator';
 import { Tag } from '@/decorators/tag.decorator';
 import { CineService } from './cine.service';
 
@@ -21,32 +20,5 @@ export class CineController {
   async getDetail(@Param('id') id: string): Promise<Resp<Record<string, any>>> {
     const cine = await this.cineService.getDetail(id);
     return Resp.success(cine);
-  }
-
-  @Public()
-  @Get('episodes/:episodeId/stream')
-  @Header('Accept-Ranges', 'bytes')
-  async streamEpisode(
-    @Param('episodeId') episodeId: string,
-    @Req() req: Request,
-    @Res() res: Response,
-  ): Promise<void> {
-    const video = await this.cineService.createEpisodeVideoStream(
-      episodeId,
-      req.headers.range,
-    );
-
-    res.status(video.partial ? 206 : 200);
-    res.setHeader('Content-Type', video.contentType);
-    res.setHeader('Content-Length', video.contentLength);
-    res.setHeader('Accept-Ranges', 'bytes');
-    if (video.partial) {
-      res.setHeader(
-        'Content-Range',
-        `bytes ${video.start}-${video.end}/${video.size}`,
-      );
-    }
-
-    video.stream.pipe(res);
   }
 }

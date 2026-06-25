@@ -30,6 +30,7 @@ import {
   UpdateCineDto,
 } from './dto';
 import { AliOssSdk } from '../oss-module/ali-oss.sdk';
+import { buildVideoEtag, resolveByteRange } from './video-stream.util';
 
 const VIDEO_EXTENSIONS = new Set([
   '.mp4',
@@ -60,13 +61,28 @@ export interface MediaInfo {
 }
 
 export interface VideoStreamInfo {
-  stream: ReturnType<typeof createReadStream>;
+  absolutePath: string;
   size: number;
   start: number;
   end: number;
   contentLength: number;
   contentType: string;
   partial: boolean;
+  etag: string;
+  lastModified: string;
+  stream: ReturnType<typeof createReadStream>;
+}
+
+export interface VideoResponseInfo {
+  absolutePath: string;
+  size: number;
+  start: number;
+  end: number;
+  contentLength: number;
+  contentType: string;
+  partial: boolean;
+  etag: string;
+  lastModified: string;
 }
 
 @Injectable()
@@ -588,6 +604,20 @@ export class CineService {
     episodeId: string,
     range?: string,
   ): Promise<VideoStreamInfo> {
+    const info = await this.getEpisodeVideoResponseInfo(episodeId, range);
+    return {
+      ...info,
+      stream: createReadStream(info.absolutePath, {
+        start: info.start,
+        end: info.end,
+      }),
+    };
+  }
+
+  async getEpisodeVideoResponseInfo(
+    episodeId: string,
+    range?: string,
+  ): Promise<VideoResponseInfo> {
     const episode = await this.episodeModel.findById(episodeId).exec();
     if (!episode) {
       throw new NotFoundException('剧集不存在');
@@ -601,57 +631,18 @@ export class CineService {
     }
 
     const size = stat.size;
-    const { start, end, partial } = this.parseRange(range, size);
-    const stream = createReadStream(absolutePath, { start, end });
+    const { start, end, partial } = resolveByteRange(range, size);
 
     return {
-      stream,
+      absolutePath,
       size,
       start,
       end,
       contentLength: end - start + 1,
       contentType: this.getVideoContentType(absolutePath),
       partial,
-    };
-  }
-
-  private parseRange(
-    range: string | undefined,
-    size: number,
-  ): { start: number; end: number; partial: boolean } {
-    if (!range) {
-      return { start: 0, end: size - 1, partial: false };
-    }
-
-    const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-    if (!match) {
-      throw new BadRequestException('Range 请求头格式错误');
-    }
-
-    const [, startText, endText] = match;
-    let start = startText ? Number(startText) : 0;
-    let end = endText ? Number(endText) : size - 1;
-
-    if (!startText && endText) {
-      const suffixLength = Number(endText);
-      start = Math.max(size - suffixLength, 0);
-      end = size - 1;
-    }
-
-    if (
-      !Number.isInteger(start) ||
-      !Number.isInteger(end) ||
-      start < 0 ||
-      end < start ||
-      start >= size
-    ) {
-      throw new BadRequestException('Range 请求范围无效');
-    }
-
-    return {
-      start,
-      end: Math.min(end, size - 1),
-      partial: true,
+      etag: buildVideoEtag(size, stat.mtimeMs),
+      lastModified: stat.mtime.toUTCString(),
     };
   }
 
@@ -671,6 +662,6 @@ export class CineService {
   }
 
   private toEpisodeStreamUrl(episodeId: string): string {
-    return `/api/cines/episodes/${episodeId}/stream`;
+    return `/media/videos/${episodeId}`;
   }
 }

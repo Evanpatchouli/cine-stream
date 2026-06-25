@@ -3,7 +3,7 @@ import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { migrate } from './migrator';
 import { logger } from '@/common/logger';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, RequestMethod, ValidationPipe } from '@nestjs/common';
 import AppConfig from './app.config';
 import cache from './cache';
 import { TraceIdInterceptor } from '@/common/trace/trace.interceptor';
@@ -49,7 +49,15 @@ class ApplicationStarter {
     const app = await NestFactory.create(AppModule);
     const httpAdapter = app.get(HttpAdapterHost);
     // 全局前缀
-    app.setGlobalPrefix('api');
+    // 媒体资源需要稳定暴露在 /media/* 下，便于后续接入独立缓存层。
+    app.setGlobalPrefix('api', {
+      exclude: [
+        {
+          path: 'media/videos/:episodeId',
+          method: RequestMethod.ALL,
+        },
+      ],
+    });
     // app.useGlobalFilters(new CatchGlobalExcenptionFilter(httpAdapter));
     app.useGlobalPipes(
       new ValidationPipe({

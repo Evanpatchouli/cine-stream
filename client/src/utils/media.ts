@@ -14,7 +14,7 @@ export function resolveMediaUrl(url?: string) {
     return url;
   }
 
-  if (url.startsWith("/api/")) {
+  if (url.startsWith("/api/") || url.startsWith("/media/")) {
     return `${getApiOrigin()}${url}`;
   }
 
