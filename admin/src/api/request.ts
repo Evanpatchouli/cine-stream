@@ -7,18 +7,6 @@ import { joinURL, withLeadingSlash, withoutTrailingSlash } from "ufo";
 
 const appBaseUrl = import.meta.env.VITE_APP_API_BASE_URL;
 
-const appendTimestampParam = (params: unknown, timestamp: number) => {
-  if (params instanceof URLSearchParams) {
-    params.set("t", String(timestamp));
-    return params;
-  }
-
-  return {
-    ...(params && typeof params === "object" ? params : {}),
-    t: timestamp,
-  };
-};
-
 // 定义通用的响应接口
 export interface ApiResponse<T = any> {
   code: number;
@@ -49,12 +37,6 @@ const createBaseRequest = (baseUrl?: string) => {
       // 允许所有状态码，这样就不会自动抛出错误
       return status >= 200 && status < 600;
     },
-  });
-
-  instance.interceptors.request.use((config) => {
-    const timestamp = Date.now();
-    config.params = appendTimestampParam(config.params, timestamp);
-    return config;
   });
 
   return instance;

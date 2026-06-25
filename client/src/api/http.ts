@@ -4,18 +4,6 @@ import axios, { AxiosError, type AxiosResponse } from "axios";
 
 const appBaseUrl = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8793/api";
 
-const appendTimestampParam = (params: unknown, timestamp: number) => {
-  if (params instanceof URLSearchParams) {
-    params.set("t", String(timestamp));
-    return params;
-  }
-
-  return {
-    ...(params && typeof params === "object" ? params : {}),
-    t: timestamp,
-  };
-};
-
 export interface ApiResponse<T = any> {
   code: number | string;
   message: string;
@@ -45,12 +33,6 @@ const createBaseRequest = (baseUrl?: string) => {
     timeout: 60000,
     withCredentials: false,
     validateStatus: (status) => status >= 200 && status < 600,
-  });
-
-  instance.interceptors.request.use((config) => {
-    const timestamp = Date.now();
-    config.params = appendTimestampParam(config.params, timestamp);
-    return config;
   });
 
   return instance;

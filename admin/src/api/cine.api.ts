@@ -116,7 +116,15 @@ export const updateCine = (
 
 export const deleteCine = (id: string): Promise<Resp<void>> => appRequest.delete(`/${id}`);
 
-export const getCineDetail = (id: string): Promise<Resp<CineRecord>> => appRequest.get(`/${id}`);
+export const getCineDetail = (
+  id: string,
+  options?: {
+    polling?: boolean;
+  },
+): Promise<Resp<CineRecord>> =>
+  appRequest.get(`/${id}`, {
+    params: options?.polling ? { t: Date.now() } : undefined,
+  });
 
 export const replaceEpisodes = (id: string, episodes: EpisodeInput[]): Promise<Resp<CineRecord>> =>
   appRequest.put(`/${id}/episodes`, { episodes });

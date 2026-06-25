@@ -634,7 +634,9 @@ export default function CineManageView() {
 
       polling = true;
       try {
-        const resp = await CineAPI.getCineDetail(currentCine.id);
+        const resp = await CineAPI.getCineDetail(currentCine.id, {
+          polling: true,
+        });
         const data = resp.getData();
         if (!data?.episodes) {
           return;
