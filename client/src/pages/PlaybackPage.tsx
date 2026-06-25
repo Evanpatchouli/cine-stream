@@ -117,6 +117,14 @@ function formatTime(seconds: number) {
   return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
+function normalizeDurationSeconds(seconds?: number | null) {
+  if (!Number.isFinite(seconds) || (seconds || 0) <= 0) {
+    return 0;
+  }
+
+  return Math.max(0, seconds || 0);
+}
+
 function upsertWatchHistoryItem(
   items: WatchHistoryItem[],
   nextItem: WatchHistoryItem,
@@ -142,6 +150,30 @@ function shouldShowVideoBuffering(video: HTMLVideoElement) {
   return !video.paused && video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA;
 }
 
+function canSeekToPlaybackPosition(
+  video: HTMLVideoElement,
+  targetSeconds: number,
+) {
+  if (
+    !Number.isFinite(targetSeconds) ||
+    targetSeconds <= 0 ||
+    video.readyState < HTMLMediaElement.HAVE_METADATA
+  ) {
+    return false;
+  }
+
+  for (let index = 0; index < video.seekable.length; index += 1) {
+    const start = video.seekable.start(index);
+    const end = video.seekable.end(index);
+
+    if (targetSeconds >= start - 1 && targetSeconds <= end + 1) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function PlaybackPage() {
   const { id, episodeId } = useParams();
   const navigate = useNavigate();
@@ -163,6 +195,9 @@ export function PlaybackPage() {
   const [muted, setMuted] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isVideoBuffering, setIsVideoBuffering] = useState(false);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [seekPreviewTime, setSeekPreviewTime] = useState<number | null>(null);
+  const [resumeReadyVersion, setResumeReadyVersion] = useState(0);
   const [collectionSnackbarOpen, setCollectionSnackbarOpen] = useState(false);
   const [episodeHistoryItems, setEpisodeHistoryItems] = useState<
     WatchHistoryItem[]
@@ -189,6 +224,7 @@ export function PlaybackPage() {
   const longPressActiveRef = useRef(false);
   const longPressTriggeredRef = useRef(false);
   const longPressRestoreRateRef = useRef(1);
+  const isScrubbingRef = useRef(false);
   const cine = storeCine || detail;
   const cineId = cine?.id;
   const collectionsLoaded = useCollectionStore((state) => state.loaded);
@@ -249,9 +285,11 @@ export function PlaybackPage() {
     ? episodeHistoryMap.get(activeEpisodeId) || null
     : null;
   const activeSavedProgress = resolveHistoryProgress(activeEpisodeHistory);
-  const activeLiveProgress = resolveProgressFromPlayback(currentTime, duration);
+  const staticDurationSeconds = normalizeDurationSeconds(activeEpisode?.duration_seconds);
+  const resolvedDuration = duration > 0 ? duration : staticDurationSeconds;
+  const activeLiveProgress = resolveProgressFromPlayback(currentTime, resolvedDuration);
   const activeEpisodeProgress =
-    duration > 0 ? activeLiveProgress : activeSavedProgress;
+    resolvedDuration > 0 ? activeLiveProgress : activeSavedProgress;
 
   const activeEpisodeIndex = useMemo(
     () => (activeEpisodeId ? episodes.findIndex((episode) => episode.id === activeEpisodeId) : -1),
@@ -269,14 +307,24 @@ export function PlaybackPage() {
 
   const posterUrl = resolveMediaUrl(cine?.backdrop) || resolveMediaUrl(cine?.poster) || MEDIA_PLACEHOLDERS.backdrop;
   const collectionButtonDisabled = !collectionsLoaded || collectionPending;
+  const displayedCurrentTime =
+    seekPreviewTime === null ? currentTime : seekPreviewTime;
 
   const syncVideoBufferingState = (video: HTMLVideoElement | null) => {
-    if (!video) {
+    if (!video || isScrubbingRef.current) {
       setIsVideoBuffering(false);
       return;
     }
 
     setIsVideoBuffering(shouldShowVideoBuffering(video));
+  };
+
+  const syncVideoDurationState = (video: HTMLVideoElement | null) => {
+    setDuration(normalizeDurationSeconds(video?.duration));
+  };
+
+  const markResumeReady = () => {
+    setResumeReadyVersion((current) => current + 1);
   };
 
   useEffect(() => {
@@ -424,6 +472,9 @@ export function PlaybackPage() {
     setCurrentTime(0);
     setDuration(0);
     setIsVideoBuffering(Boolean(videoUrl));
+    setIsScrubbing(false);
+    setSeekPreviewTime(null);
+    isScrubbingRef.current = false;
     restoredEpisodeIdRef.current = "";
 
     if (longPressTimerRef.current !== null) {
@@ -529,7 +580,7 @@ export function PlaybackPage() {
       !video ||
       !activeEpisodeId ||
       !episodeHistoryLoaded ||
-      duration <= 0 ||
+      resolvedDuration <= 0 ||
       restoredEpisodeIdRef.current === activeEpisodeId
     ) {
       return;
@@ -538,20 +589,38 @@ export function PlaybackPage() {
     const resumeAt = resolveResumePosition(
       activeEpisodeHistory?.position_seconds,
       activeEpisodeHistory?.duration_seconds,
-      video.duration || duration,
+      normalizeDurationSeconds(video.duration) || resolvedDuration,
     );
 
-    if (resumeAt > 0 && Math.abs((video.currentTime || 0) - resumeAt) > 1) {
-      video.currentTime = resumeAt;
-      setCurrentTime(resumeAt);
+    if (resumeAt <= 0) {
+      restoredEpisodeIdRef.current = activeEpisodeId;
+      return;
     }
 
-    restoredEpisodeIdRef.current = activeEpisodeId;
+    if (Math.abs((video.currentTime || 0) - resumeAt) <= 1) {
+      restoredEpisodeIdRef.current = activeEpisodeId;
+      return;
+    }
+
+    const canResumeNow =
+      canSeekToPlaybackPosition(video, resumeAt) ||
+      (!hlsUrl && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA);
+
+    if (!canResumeNow) {
+      return;
+    }
+
+    if (Math.abs((video.currentTime || 0) - resumeAt) > 1) {
+      video.currentTime = resumeAt;
+    }
   }, [
     activeEpisodeHistory?.duration_seconds,
     activeEpisodeHistory?.position_seconds,
     activeEpisodeId,
-    duration,
+    currentTime,
+    hlsUrl,
+    resumeReadyVersion,
+    resolvedDuration,
     episodeHistoryLoaded,
   ]);
 
@@ -580,11 +649,13 @@ export function PlaybackPage() {
       return;
     }
 
-    const durationSeconds = Number.isFinite(video.duration)
-      ? Math.max(0, video.duration || 0)
-      : 0;
+    const durationSeconds =
+      normalizeDurationSeconds(video.duration) || staticDurationSeconds;
     const positionSeconds = Number.isFinite(video.currentTime)
-      ? Math.max(0, video.currentTime || 0)
+      ? Math.max(
+        0,
+        Math.min(video.currentTime || 0, durationSeconds || (video.currentTime || 0)),
+      )
       : 0;
 
     if (durationSeconds <= 0 || positionSeconds <= 0) {
@@ -773,9 +844,33 @@ export function PlaybackPage() {
     }
   };
 
-  const seekTo = (value: number | number[]) => {
+  const resolveSliderValue = (value: number | number[]) =>
+    Array.isArray(value) ? value[0] : value;
+
+  const setScrubbingState = (next: boolean) => {
+    isScrubbingRef.current = next;
+    setIsScrubbing(next);
+  };
+
+  const previewSeek = (value: number | number[]) => {
+    const nextTime = resolveSliderValue(value);
+
+    if (!Number.isFinite(nextTime)) {
+      return;
+    }
+
+    setScrubbingState(true);
+    setSeekPreviewTime(nextTime);
+    setIsVideoBuffering(false);
+    showPlayerControls();
+  };
+
+  const commitSeek = (value: number | number[]) => {
     const video = videoRef.current;
-    const nextTime = Array.isArray(value) ? value[0] : value;
+    const nextTime = resolveSliderValue(value);
+
+    setScrubbingState(false);
+    setSeekPreviewTime(null);
 
     if (!video || !Number.isFinite(nextTime)) {
       return;
@@ -783,6 +878,7 @@ export function PlaybackPage() {
 
     video.currentTime = nextTime;
     setCurrentTime(nextTime);
+    syncVideoBufferingState(video);
     persistWatchProgress(true);
   };
 
@@ -921,23 +1017,35 @@ export function PlaybackPage() {
             onLoadedMetadata={(event) => {
               const video = event.currentTarget;
 
-              setDuration(video.duration || 0);
+              syncVideoDurationState(video);
               setCurrentTime(video.currentTime || 0);
               setVolume(video.volume);
               setMuted(video.muted);
               setPlaybackRate(video.playbackRate);
+              markResumeReady();
+            }}
+            onDurationChange={(event) => {
+              syncVideoDurationState(event.currentTarget);
+              markResumeReady();
             }}
             onLoadedData={(event) => {
               syncVideoBufferingState(event.currentTarget);
+              markResumeReady();
             }}
             onCanPlay={(event) => {
               syncVideoBufferingState(event.currentTarget);
+              markResumeReady();
             }}
             onWaiting={() => setIsVideoBuffering(true)}
             onStalled={() => setIsVideoBuffering(true)}
-            onSeeking={() => setIsVideoBuffering(true)}
+            onSeeking={(event) => {
+              if (!isScrubbingRef.current) {
+                syncVideoBufferingState(event.currentTarget);
+              }
+            }}
             onSeeked={(event) => {
               syncVideoBufferingState(event.currentTarget);
+              markResumeReady();
             }}
             onTimeUpdate={(event) => {
               setCurrentTime(event.currentTarget.currentTime || 0);
@@ -969,7 +1077,7 @@ export function PlaybackPage() {
           </>
         )}
 
-        {videoUrl && isVideoBuffering ? (
+        {videoUrl && isVideoBuffering && !isScrubbing ? (
           <div className="pointer-events-none absolute inset-0 z-[15] flex items-center justify-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-black/20 text-white shadow-lg shadow-black/20 backdrop-blur-sm">
               <CircularProgress
@@ -997,9 +1105,10 @@ export function PlaybackPage() {
                 <Slider
                   size="small"
                   min={0}
-                  max={duration || 1}
-                  value={duration ? Math.min(currentTime, duration) : 0}
-                  onChange={(_, value) => seekTo(value)}
+                  max={resolvedDuration || 1}
+                  value={resolvedDuration ? Math.min(displayedCurrentTime, resolvedDuration) : 0}
+                  onChange={(_, value) => previewSeek(value)}
+                  onChangeCommitted={(_, value) => commitSeek(value)}
                   sx={SLIDER_SX}
                   aria-label="播放进度"
                 />
@@ -1020,7 +1129,7 @@ export function PlaybackPage() {
                 </button>
 
                 <div className="shrink-0 text-xs font-semibold leading-none text-white">
-                  {formatTime(currentTime)} / {formatTime(duration)}
+                  {formatTime(displayedCurrentTime)} / {formatTime(resolvedDuration)}
                 </div>
 
                 <div className="ml-auto flex h-8 items-center gap-1.5">

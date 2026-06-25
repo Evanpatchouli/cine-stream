@@ -9,7 +9,10 @@
 - 2026-06-26：阶段 2B 已完成。HLS 默认生成已改为按源视频分辨率串行输出自适应档位集：`1080p + 720p + 360p`、`720p + 360p` 或仅 `360p`；也仍支持显式补生成单一档位。当前 HLS 文件落在 `MEDIA_HLS_ROOT`（默认 `./storage/hls`）下，不改动原视频目录结构。
 - 2026-06-26：阶段 2B 已完成用户人工验收。当前已确认管理端可成功触发并生成 HLS，客户端也能正常播放 HLS 视频，至少明面链路已跑通。
 - 2026-06-26：客户端播放页已接入 HLS 优先播放与直链回退。若当前剧集存在 `hls_url`，Safari 会优先走原生 HLS，Chrome / Edge 等会通过 `hls.js` 播放；HLS 致命错误时自动回退到 `/media/videos/:episodeId`。
-- 2026-06-26：客户端播放页已补齐视频缓冲提示。当前视频在首帧加载、`waiting/stalled` 卡顿或拖动进度条 seek 期间，会在播放器中央显示轻量半透明的转圈 loading；用户主动暂停、播放结束或加载失败时会自动收起，不影响原有控制层。
+- 2026-06-26：客户端播放页已补齐视频缓冲提示。当前视频在首帧加载、`waiting/stalled` 卡顿等真实缓冲场景下，会在播放器中央显示轻量半透明的转圈 loading；用户主动暂停、播放结束、加载失败或手动拖动进度条时会自动收起，不影响原有控制层。
+- 2026-06-26：已修复移动端拖动进度条回归。根因是 loading 遮罩在 `seeking` 期间立刻挂载，同时进度条又在拖动过程中持续真实 seek，导致真机 touch 手势容易被打断；现已改为“拖动时只预览位置、松手后再提交 seek”，并在 scrubbing 期间抑制中央 loading。
+- 2026-06-26：已修复真机总时长显示 `00:00` 的回归。根因是移动端原生 HLS 在 `loadedmetadata` 阶段不一定给出稳定的有限时长；现已改为真实媒体时长优先，异常时回退使用后端返回的 `episode.duration_seconds`，并同步覆盖总时长展示、进度条、续播恢复和观看历史上报。
+- 2026-06-26：已修复真机续播“先跳到历史位置、随后又从头播放”的回归。根因是前端在原生 HLS 尚未真正可 seek 时就提前触发恢复，并把一次 `currentTime` 赋值误判成恢复成功；现已改为只在媒体真正可 seek 后尝试恢复，并以实际到达目标位置作为恢复完成条件。
 - 2026-06-26：后端保存剧集时已改为尽量复用已有 `episode.id`，不再整批删重建。若剧集源文件 `file_path` 变化，会自动清理该集已有 HLS 文件并重置 HLS 状态，避免衍生资源错配。
 - 2026-06-26：阶段 1 媒体访问性能优化已完成。剧集公开播放地址已从 `/api/cines/episodes/:episodeId/stream` 迁移到 `/media/videos/:episodeId`；后端新增独立 `MediaController`，并通过 `main.ts` 将该路由排除在全局 `/api` 前缀之外。
 - 2026-06-26：`/media/videos/:episodeId` 已补齐 Range 加固和缓存友好响应头，支持 `GET` / `HEAD`、`Accept-Ranges`、`ETag`、`Last-Modified`、`Cache-Control`；无效 Range 现在返回 `416`，并带 `Content-Range: bytes */total`。
@@ -81,6 +84,9 @@
 - 本轮 `pnpm --filter @cine-stream/admin build` 通过；Redis + BullMQ 队列迁移、HLS 帮助入口与状态展示已通过类型检查和产物构建。
 - 本轮 `pnpm --filter @cine-stream/client build` 通过；引入 `hls.js` 后仍有既有 chunk size warning，不影响产物。
 - 本轮 `pnpm --filter @cine-stream/client build` 通过；播放页中央 loading 提示改动已通过类型检查和产物构建。
+- 本轮 `pnpm --filter @cine-stream/client build` 通过；移动端进度条 seek 交互已改为预览后提交，避免 loading 遮罩打断 touch 拖动。
+- 本轮 `pnpm --filter @cine-stream/client build` 通过；播放页已接入后端静态时长兜底，覆盖原生 HLS 时长异常场景。
+- 本轮 `pnpm --filter @cine-stream/client build` 通过；续播恢复成功不再依赖一次 `currentTime` 赋值，而是基于媒体真实 seek 结果判定。
 - 本轮用户人工验收通过：管理端已成功构建 HLS，客户端可正常观看 HLS 视频。
 - 本轮 `pnpm --filter @cine-stream/server test -- cine.service.spec.ts hls.util.spec.ts episode-hls.job.service.spec.ts media.controller.spec.ts video-stream.util.spec.ts` 通过；已覆盖默认多档生成与部分失败保留可用档位。
 - 本轮通过独立探针验证：`ioredis` 直连 `redis://127.0.0.1:6379` 可正常 `PING PONG`；BullMQ 在使用不含 `:` 的 `jobId` 时可成功入队。
@@ -112,10 +118,12 @@
 ## 注意事项
 
 - 本轮已完成阶段 2B：默认 HLS 可按源视频分辨率生成自适应档位集；但仍未实现批量转码、失败重试，也尚未在上海 Nginx 上接缓存。
-- 客户端当前没有现成的自动化 UI 测试基建，本轮播放页 loading 提示主要通过代码审阅和 `client build` 验证，尚未补浏览器级自动化回归。
+- 客户端当前没有现成的自动化 UI 测试基建，本轮播放页 loading / 移动端 seek 修复主要通过代码审阅和 `client build` 验证，尚未补浏览器级自动化回归。
 - 本轮已补一个稳态修复：若某集已经有可用 HLS，后续补生成某个档位失败时，服务端会保留旧的可用 variant，不会把整集 HLS 一起打成不可用；删除影视时也会同步清理其 HLS 落盘目录。
 - 当前只有 HLS 后台任务使用 Redis + BullMQ；项目内其他 `cache` 相关能力未在本轮迁移，仍保持原实现。
 - 本轮已补真实链路人工验收：你已确认可成功构建 HLS，客户端也能正常观看；但验收范围仍以单集手动操作和基础播放链路为主，尚未覆盖批量转码、失败重试和线上缓存场景。
+- 真机浏览器如果后续能正确上报媒体真实时长，前端会优先使用真实时长；只有在 `video.duration` 为 `0/NaN/Infinity` 等异常值时，才回退到后端静态时长。
+- 真机原生 HLS 的续播恢复仍依赖浏览器最终暴露可 seek 区间；当前代码已经在 `loadedmetadata / durationchange / loadeddata / canplay / seeked` 多个检查点补偿重试，但本轮尚未完成真机二次人工回归。
 - 管理端在剧集弹窗里只允许“已保存且源文件路径未改动”的 episode 直接生成 HLS；如果刚改过 `file_path`，需要先保存剧集，避免后台按旧路径转码。
 - `MediaController` 的控制器单测覆盖了 `/media/videos/:episodeId` 的 GET / HEAD / 416 行为，但本轮没有启动真实服务做 `curl` 级联调。
 - 当前“已看完”阈值为进度达到 98% 或剩余时长不超过 3 秒；此类记录不会再从片尾附近续播。

@@ -36,3 +36,6 @@
 - 播放器上有自定义覆盖层时，不要依赖原生 `<video>` 全屏入口；应对播放器容器调用 Fullscreen API，并把提示层、操作按钮和 video 放在同一个 fullscreen 容器内。
 - 续播恢复不要只挂在 `onLoadedMetadata`；观看历史和视频元数据是两条独立异步链路，历史晚到时需要用独立 effect 在条件齐备后补执行恢复。
 - 观看进度应以 `position_seconds + duration_seconds` 作为事实来源，`progress` 只做派生展示字段；否则首页、历史页、播放页很容易各自显示一套不一致的“假进度”。
+- 移动端播放器的“用户主动拖动 seek”和“真实网络缓冲”要分开建模；如果在 scrubbing 过程中立刻挂载 loading 覆盖层，再叠加连续真实 seek，真机 touch 手势很容易被打断。
+- 真机浏览器播放原生 HLS 时，`loadedmetadata` 阶段的 `video.duration` 不一定可靠；如果后端已经有可信的源视频时长，前端应把它作为显示和进度逻辑的兜底值。
+- 续播恢复不能把“执行过 `video.currentTime = target`”当成成功信号；尤其是真机原生 HLS，必须等媒体真实到达目标位置后再标记恢复完成。
