@@ -52,7 +52,7 @@ pnpm dev:client
 
 剧集播放统一走公开媒体地址 `/media/videos/:episodeId`。后端会根据剧集记录的 `file_path` 从当前视频资源根目录读取文件，并返回支持 HTTP Range 的流式响应，便于浏览器 seek 和后续接入缓存层。
 
-管理端现在支持对单集手动生成 HLS。`POST /api/admin/cines/episodes/:episodeId/hls/build` 会先快速返回 `202 Accepted`，再由后端基于 Redis + BullMQ 的后台任务异步执行 ffmpeg；当前采用单 worker 串行转码，避免多路 ffmpeg 抢占机器资源。管理端会轮询 `hls_status` 刷新状态，并在 HLS 设置区提供“什么是 HLS？”说明弹窗。默认会优先生成 `720p`；也可以按需生成 `1080p` 或 `360p`。客户端播放时会优先尝试 HLS，失败后自动回退到直链视频。
+管理端现在支持对单集手动生成 HLS。`POST /api/admin/cines/episodes/:episodeId/hls/build` 会先快速返回 `202 Accepted`，再由后端基于 Redis + BullMQ 的后台任务异步执行 ffmpeg；当前采用单 worker 串行转码，避免多路 ffmpeg 抢占机器资源。管理端会轮询 `hls_status` 刷新状态，并在 HLS 设置区提供“什么是 HLS？”说明弹窗。默认会按源视频分辨率自动生成一组自适应档位：`1080p + 720p + 360p`、`720p + 360p` 或仅 `360p`；也可以按需单独生成某一档。客户端播放时会优先尝试 HLS，失败后自动回退到直链视频。
 
 客户端参考 `client/.env.example`：
 

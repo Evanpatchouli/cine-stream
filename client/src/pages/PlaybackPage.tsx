@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Hls from "hls.js";
 import { useNavigate, useParams } from "react-router-dom";
-import { Chip, LinearProgress, Slider, Snackbar, Switch, Typography } from "@mui/material";
+import { Chip, CircularProgress, LinearProgress, Slider, Snackbar, Switch, Typography } from "@mui/material";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
 import PauseRoundedIcon from "@mui/icons-material/PauseRounded";
 import BookmarkAddOutlinedIcon from "@mui/icons-material/BookmarkAddOutlined";
@@ -126,6 +126,22 @@ function upsertWatchHistoryItem(
   );
 }
 
+function shouldShowVideoBuffering(video: HTMLVideoElement) {
+  if (video.ended) {
+    return false;
+  }
+
+  if (video.seeking) {
+    return true;
+  }
+
+  if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+    return true;
+  }
+
+  return !video.paused && video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA;
+}
+
 export function PlaybackPage() {
   const { id, episodeId } = useParams();
   const navigate = useNavigate();
@@ -146,6 +162,7 @@ export function PlaybackPage() {
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [isVideoBuffering, setIsVideoBuffering] = useState(false);
   const [collectionSnackbarOpen, setCollectionSnackbarOpen] = useState(false);
   const [episodeHistoryItems, setEpisodeHistoryItems] = useState<
     WatchHistoryItem[]
@@ -252,6 +269,15 @@ export function PlaybackPage() {
 
   const posterUrl = resolveMediaUrl(cine?.backdrop) || resolveMediaUrl(cine?.poster) || MEDIA_PLACEHOLDERS.backdrop;
   const collectionButtonDisabled = !collectionsLoaded || collectionPending;
+
+  const syncVideoBufferingState = (video: HTMLVideoElement | null) => {
+    if (!video) {
+      setIsVideoBuffering(false);
+      return;
+    }
+
+    setIsVideoBuffering(shouldShowVideoBuffering(video));
+  };
 
   useEffect(() => {
     if (!id || storeCine) {
@@ -397,6 +423,7 @@ export function PlaybackPage() {
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
+    setIsVideoBuffering(Boolean(videoUrl));
     restoredEpisodeIdRef.current = "";
 
     if (longPressTimerRef.current !== null) {
@@ -406,7 +433,7 @@ export function PlaybackPage() {
 
     longPressActiveRef.current = false;
     longPressTriggeredRef.current = false;
-  }, [playbackSourceKey]);
+  }, [playbackSourceKey, videoUrl]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -434,7 +461,10 @@ export function PlaybackPage() {
     const fallbackToStream = () => {
       if (streamUrl) {
         applyDirectSource(streamUrl);
+        return;
       }
+
+      setIsVideoBuffering(false);
     };
 
     if (!hlsUrl) {
@@ -877,9 +907,15 @@ export function PlaybackPage() {
             onPointerCancel={handleVideoSurfacePointerRelease}
             onPointerLeave={handleVideoSurfacePointerRelease}
             onContextMenu={(event) => event.preventDefault()}
+            onLoadStart={() => setIsVideoBuffering(true)}
             onPlay={() => setIsPlaying(true)}
-            onPause={() => {
+            onPlaying={(event) => {
+              setIsPlaying(true);
+              syncVideoBufferingState(event.currentTarget);
+            }}
+            onPause={(event) => {
               setIsPlaying(false);
+              syncVideoBufferingState(event.currentTarget);
               persistWatchProgress(true);
             }}
             onLoadedMetadata={(event) => {
@@ -890,6 +926,18 @@ export function PlaybackPage() {
               setVolume(video.volume);
               setMuted(video.muted);
               setPlaybackRate(video.playbackRate);
+            }}
+            onLoadedData={(event) => {
+              syncVideoBufferingState(event.currentTarget);
+            }}
+            onCanPlay={(event) => {
+              syncVideoBufferingState(event.currentTarget);
+            }}
+            onWaiting={() => setIsVideoBuffering(true)}
+            onStalled={() => setIsVideoBuffering(true)}
+            onSeeking={() => setIsVideoBuffering(true)}
+            onSeeked={(event) => {
+              syncVideoBufferingState(event.currentTarget);
             }}
             onTimeUpdate={(event) => {
               setCurrentTime(event.currentTarget.currentTime || 0);
@@ -902,8 +950,10 @@ export function PlaybackPage() {
             onRateChange={(event) => {
               setPlaybackRate(event.currentTarget.playbackRate);
             }}
-            onEnded={() => {
+            onError={() => setIsVideoBuffering(false)}
+            onEnded={(event) => {
               setIsPlaying(false);
+              syncVideoBufferingState(event.currentTarget);
               persistWatchProgress(true);
               handleVideoEnded();
             }}
@@ -918,6 +968,18 @@ export function PlaybackPage() {
             </div>
           </>
         )}
+
+        {videoUrl && isVideoBuffering ? (
+          <div className="pointer-events-none absolute inset-0 z-[15] flex items-center justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-black/20 text-white shadow-lg shadow-black/20 backdrop-blur-sm">
+              <CircularProgress
+                size={22}
+                thickness={4}
+                sx={{ color: "rgba(255, 255, 255, 0.92)" }}
+              />
+            </div>
+          </div>
+        ) : null}
 
         {videoUrl ? (
           <div

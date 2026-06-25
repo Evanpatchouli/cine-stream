@@ -41,6 +41,7 @@ import {
   HLS_PROFILE_PRESETS,
   HLS_PROFILE_VALUES,
   HlsProfile,
+  resolveAutoHlsProfiles,
   resolveAutoHlsProfile,
 } from './hls.util';
 
@@ -105,6 +106,12 @@ export interface StaticAssetStreamInfo {
   etag: string;
   lastModified: string;
   stream: ReturnType<typeof createReadStream>;
+}
+
+interface HlsBuildFailure {
+  error: unknown;
+  message: string;
+  profile: HlsProfile;
 }
 
 @Injectable()
@@ -488,8 +495,6 @@ export class CineService {
     const { episode, absolutePath } = await this.getEpisodeSourceFile(episodeId);
     const previousVariants = [...(episode.hls_variants || [])];
     const episodeRoot = this.getEpisodeHlsRootAbsolutePath(episode.id);
-    let profile: HlsProfile | null = null;
-    let profileDir = '';
 
     try {
       const dimensions = await this.readVideoDimensionsByFfprobe(absolutePath);
@@ -497,122 +502,67 @@ export class CineService {
         throw new BadRequestException('无法读取视频分辨率，不能生成 HLS');
       }
 
-      profile = this.resolveHlsProfile(
-        requestedProfile,
-        dimensions.height,
-      );
-      const preset = HLS_PROFILE_PRESETS[profile];
-      profileDir = path.join(episodeRoot, profile);
-      const playlistAbsolutePath = path.join(profileDir, 'index.m3u8');
-      const segmentPattern = path.join(profileDir, 'segment_%03d.ts');
-      const scaledWidth = computeScaledWidth(
-        dimensions.width,
-        dimensions.height,
-        preset.height,
-      );
+      const targetProfiles = requestedProfile
+        ? [this.resolveHlsProfile(requestedProfile, dimensions.height)]
+        : this.resolveDefaultHlsProfiles(dimensions.height);
+      const failures: HlsBuildFailure[] = [];
+      let nextVariants = [...previousVariants];
 
-      await fs.mkdir(profileDir, { recursive: true });
-      await execFileAsync(
-        AppConfig.Media.FFMPEG_PATH,
-        [
-          '-y',
-          '-i',
-          absolutePath,
-          '-map',
-          '0:v:0',
-          '-map',
-          '0:a:0?',
-          '-c:v',
-          'libx264',
-          '-preset',
-          'veryfast',
-          '-crf',
-          String(preset.crf),
-          '-vf',
-          `scale=-2:${preset.height}`,
-          '-c:a',
-          'aac',
-          '-b:a',
-          preset.audioBitrate,
-          '-ac',
-          '2',
-          '-start_number',
-          '0',
-          '-hls_time',
-          '6',
-          '-hls_playlist_type',
-          'vod',
-          '-hls_flags',
-          'independent_segments',
-          '-hls_segment_filename',
-          segmentPattern,
-          playlistAbsolutePath,
-        ],
-        { windowsHide: true },
-      );
+      for (const profile of targetProfiles) {
+        try {
+          const variant = await this.buildEpisodeHlsVariant(
+            absolutePath,
+            episodeRoot,
+            dimensions,
+            profile,
+          );
+          nextVariants = this.mergeEpisodeHlsVariantList(nextVariants, variant);
+        } catch (error) {
+          failures.push({
+            profile,
+            message:
+              error instanceof Error ? error.message.slice(0, 500) : 'HLS 生成失败',
+            error,
+          });
+          nextVariants = nextVariants.filter(
+            (variant) => variant.profile !== profile,
+          );
 
-      const playlistStat = await fs.stat(playlistAbsolutePath).catch(() => null);
-      if (!playlistStat?.isFile()) {
-        throw new BadRequestException('HLS 清单文件生成失败');
+          if (requestedProfile) {
+            break;
+          }
+        }
       }
 
-      const variant: EpisodeHlsVariant = {
-        profile,
-        width: scaledWidth,
-        height: preset.height,
-        bandwidth: preset.bandwidth,
-        playlist_path: `${profile}/index.m3u8`,
-      };
+      if (!nextVariants.length) {
+        await this.deleteEpisodeHlsFiles(episode.id);
+        this.resetEpisodeHlsState(episode);
+        episode.hls_status = 'failed';
+        episode.hls_last_error = this.formatHlsBuildFailures(failures);
+        episode.updated_at = Date.now();
+        await episode.save();
+        throw failures[0]?.error || new BadRequestException('HLS 生成失败');
+      }
 
-      this.mergeEpisodeHlsVariant(episode, variant);
       episode.hls_status = 'ready';
       episode.hls_output_dir = episode.id;
       episode.hls_master_path = 'master.m3u8';
+      episode.hls_variants = nextVariants;
       episode.hls_updated_at = Date.now();
-      episode.hls_last_error = '';
+      episode.hls_last_error = failures.length
+        ? this.formatHlsBuildFailures(failures)
+        : '';
       episode.updated_at = Date.now();
 
       await this.writeEpisodeHlsMasterPlaylist(episode);
       await episode.save();
 
+      if (requestedProfile && failures.length) {
+        throw failures[0].error;
+      }
+
       return this.toEpisodeResponse(episode.toJSON());
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message.slice(0, 500) : 'HLS 生成失败';
-
-      if (profileDir) {
-        await fs
-          .rm(profileDir, { recursive: true, force: true })
-          .catch(() => undefined);
-      }
-
-      const fallbackVariants = profile
-        ? previousVariants.filter((variant) => variant.profile !== profile)
-        : previousVariants;
-
-      if (fallbackVariants.length) {
-        episode.hls_status = 'ready';
-        episode.hls_output_dir = episode.id;
-        episode.hls_master_path = 'master.m3u8';
-        episode.hls_variants = fallbackVariants;
-        episode.hls_updated_at = Date.now();
-      } else {
-        await this.deleteEpisodeHlsFiles(episode.id);
-        episode.hls_status = 'failed';
-        episode.hls_output_dir = '';
-        episode.hls_master_path = '';
-        episode.hls_variants = [];
-        episode.hls_updated_at = 0;
-      }
-
-      episode.hls_last_error = errorMessage;
-      episode.updated_at = Date.now();
-
-      if (episode.hls_status === 'ready') {
-        await this.writeEpisodeHlsMasterPlaylist(episode);
-      }
-
-      await episode.save();
       throw error;
     }
   }
@@ -1155,6 +1105,14 @@ export class CineService {
     return autoProfile;
   }
 
+  private resolveDefaultHlsProfiles(sourceHeight: number): HlsProfile[] {
+    const profiles = resolveAutoHlsProfiles(sourceHeight);
+    if (!profiles.length) {
+      throw new BadRequestException('源视频分辨率过低，不能生成默认 HLS');
+    }
+    return profiles;
+  }
+
   private getEpisodeHlsRootAbsolutePath(episodeId: string): string {
     return path.join(AppConfig.Media.HLS_ROOT, episodeId);
   }
@@ -1172,11 +1130,21 @@ export class CineService {
     episode: EpisodeVideoDocument,
     nextVariant: EpisodeHlsVariant,
   ): void {
-    const variants = (episode.hls_variants || []).filter(
+    episode.hls_variants = this.mergeEpisodeHlsVariantList(
+      episode.hls_variants || [],
+      nextVariant,
+    );
+  }
+
+  private mergeEpisodeHlsVariantList(
+    variants: EpisodeHlsVariant[],
+    nextVariant: EpisodeHlsVariant,
+  ): EpisodeHlsVariant[] {
+    const merged = variants.filter(
       (variant) => variant.profile !== nextVariant.profile,
     );
-    variants.push(nextVariant);
-    episode.hls_variants = variants.sort((left, right) => right.height - left.height);
+    merged.push(nextVariant);
+    return merged.sort((left, right) => right.height - left.height);
   }
 
   private async writeEpisodeHlsMasterPlaylist(
@@ -1191,5 +1159,91 @@ export class CineService {
   private async deleteEpisodeHlsFiles(episodeId: string): Promise<void> {
     const rootDir = this.getEpisodeHlsRootAbsolutePath(episodeId);
     await fs.rm(rootDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+
+  private async buildEpisodeHlsVariant(
+    absolutePath: string,
+    episodeRoot: string,
+    dimensions: { width: number; height: number },
+    profile: HlsProfile,
+  ): Promise<EpisodeHlsVariant> {
+    const preset = HLS_PROFILE_PRESETS[profile];
+    const profileDir = path.join(episodeRoot, profile);
+    const playlistAbsolutePath = path.join(profileDir, 'index.m3u8');
+    const segmentPattern = path.join(profileDir, 'segment_%03d.ts');
+    const scaledWidth = computeScaledWidth(
+      dimensions.width,
+      dimensions.height,
+      preset.height,
+    );
+
+    try {
+      await fs.mkdir(profileDir, { recursive: true });
+      await execFileAsync(
+        AppConfig.Media.FFMPEG_PATH,
+        [
+          '-y',
+          '-i',
+          absolutePath,
+          '-map',
+          '0:v:0',
+          '-map',
+          '0:a:0?',
+          '-c:v',
+          'libx264',
+          '-preset',
+          'veryfast',
+          '-crf',
+          String(preset.crf),
+          '-vf',
+          `scale=-2:${preset.height}`,
+          '-c:a',
+          'aac',
+          '-b:a',
+          preset.audioBitrate,
+          '-ac',
+          '2',
+          '-start_number',
+          '0',
+          '-hls_time',
+          '6',
+          '-hls_playlist_type',
+          'vod',
+          '-hls_flags',
+          'independent_segments',
+          '-hls_segment_filename',
+          segmentPattern,
+          playlistAbsolutePath,
+        ],
+        { windowsHide: true },
+      );
+
+      const playlistStat = await fs
+        .stat(playlistAbsolutePath)
+        .catch(() => null);
+      if (!playlistStat?.isFile()) {
+        throw new BadRequestException('HLS 清单文件生成失败');
+      }
+
+      return {
+        profile,
+        width: scaledWidth,
+        height: preset.height,
+        bandwidth: preset.bandwidth,
+        playlist_path: `${profile}/index.m3u8`,
+      };
+    } catch (error) {
+      await fs
+        .rm(profileDir, { recursive: true, force: true })
+        .catch(() => undefined);
+      throw error;
+    }
+  }
+
+  private formatHlsBuildFailures(failures: HlsBuildFailure[]): string {
+    return failures
+      .map((failure) => `${failure.profile}：${failure.message}`)
+      .join('；')
+      .slice(0, 500);
   }
 }

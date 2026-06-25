@@ -19,6 +19,7 @@
 - ffmpeg 这类长任务不要挂在普通 HTTP 请求里同步等待；先做“请求快速返回 + 进程内串行后台队列 + 前端轮询状态”，通常就是最小可交付的异步化路径。
 - BullMQ 接 TypeScript 项目时，优先直接传 `{ url: REDIS_URL }` 这类连接配置给 `Queue/Worker`，不要手动 new 一份外部 `ioredis` 实例；这样能避开 BullMQ 自带 `ioredis` 类型与业务依赖版本不一致造成的编译冲突。
 - BullMQ 自定义 `jobId` 不能包含 `:`；如果沿用 Redis key 风格命名，入队时会直接失败并抛 `Custom Id cannot contain :`。
+- 单机多码率 HLS 的第二阶段，优先做“一个任务里串行生成多档”比“一次 ffmpeg 同时产出多档”更稳，更容易复用现有失败回滚和档位保留逻辑。
 - 媒体衍生任务一旦异步化，就必须同时补上“危险编辑保护”：至少要拦住删影视、删 HLS、换视频源这类会和后台写盘直接冲突的操作。
 - 浏览器端用 axios 上传 `FormData` 时不要手写 `Content-Type: multipart/form-data`，让 axios/浏览器自动补 boundary 更稳。
 - Node 里把 `Buffer` 放进 `Blob` 可能触发 `ArrayBufferLike` 类型不兼容；先复制到标准 `Uint8Array` 再构造 `Blob` 可以通过 TypeScript 校验。

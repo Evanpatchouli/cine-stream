@@ -191,6 +191,132 @@ describe('CineService', () => {
     expect(episode.save).toHaveBeenCalledTimes(1);
   });
 
+  it('默认生成 HLS 时会按源分辨率依次生成多档', async () => {
+    const episode = createEpisodeDoc({
+      hls_status: 'processing',
+      hls_output_dir: '',
+      hls_master_path: '',
+      hls_variants: [],
+      hls_updated_at: 0,
+      hls_last_error: '',
+    });
+    const service = createService();
+
+    jest
+      .spyOn<any, any>(service as any, 'getEpisodeSourceFile')
+      .mockResolvedValue({
+        episode,
+        absolutePath: 'E:/videos/demo.mp4',
+      });
+    jest
+      .spyOn<any, any>(service as any, 'readVideoDimensionsByFfprobe')
+      .mockResolvedValue({ width: 1920, height: 1080 });
+
+    mockedExecFile.mockImplementation((...args: any[]) => {
+      const callback = args[args.length - 1];
+      callback(null, '', '');
+      return {} as any;
+    });
+
+    const result = await service.runEpisodeHlsBuild('episode-1');
+
+    expect(mockedExecFile).toHaveBeenCalledTimes(3);
+    expect(episode.hls_status).toBe('ready');
+    expect(episode.hls_variants).toEqual([
+      {
+        profile: '1080p',
+        width: 1920,
+        height: 1080,
+        bandwidth: 5_000_000,
+        playlist_path: '1080p/index.m3u8',
+      },
+      {
+        profile: '720p',
+        width: 1280,
+        height: 720,
+        bandwidth: 2_800_000,
+        playlist_path: '720p/index.m3u8',
+      },
+      {
+        profile: '360p',
+        width: 640,
+        height: 360,
+        bandwidth: 800_000,
+        playlist_path: '360p/index.m3u8',
+      },
+    ]);
+    expect(episode.hls_last_error).toBe('');
+    expect(result.hls_profiles).toEqual(['1080p', '720p', '360p']);
+    expect(mockedFs.writeFile).toHaveBeenCalledWith(
+      expect.stringContaining('master.m3u8'),
+      expect.stringContaining('1080p/index.m3u8'),
+      'utf8',
+    );
+  });
+
+  it('默认生成 HLS 时，部分档位失败会保留已成功档位', async () => {
+    const episode = createEpisodeDoc({
+      hls_status: 'processing',
+      hls_output_dir: '',
+      hls_master_path: '',
+      hls_variants: [],
+      hls_updated_at: 0,
+      hls_last_error: '',
+    });
+    const service = createService();
+    let buildCount = 0;
+
+    jest
+      .spyOn<any, any>(service as any, 'getEpisodeSourceFile')
+      .mockResolvedValue({
+        episode,
+        absolutePath: 'E:/videos/demo.mp4',
+      });
+    jest
+      .spyOn<any, any>(service as any, 'readVideoDimensionsByFfprobe')
+      .mockResolvedValue({ width: 1920, height: 1080 });
+
+    mockedExecFile.mockImplementation((...args: any[]) => {
+      buildCount += 1;
+      const callback = args[args.length - 1];
+      if (buildCount === 2) {
+        callback(new Error('ffmpeg failed'));
+        return {} as any;
+      }
+
+      callback(null, '', '');
+      return {} as any;
+    });
+
+    const result = await service.runEpisodeHlsBuild('episode-1');
+
+    expect(mockedExecFile).toHaveBeenCalledTimes(3);
+    expect(episode.hls_status).toBe('ready');
+    expect(episode.hls_variants).toEqual([
+      {
+        profile: '1080p',
+        width: 1920,
+        height: 1080,
+        bandwidth: 5_000_000,
+        playlist_path: '1080p/index.m3u8',
+      },
+      {
+        profile: '360p',
+        width: 640,
+        height: 360,
+        bandwidth: 800_000,
+        playlist_path: '360p/index.m3u8',
+      },
+    ]);
+    expect(episode.hls_last_error).toContain('720p');
+    expect(result.hls_status).toBe('ready');
+    expect(result.hls_profiles).toEqual(['1080p', '360p']);
+    expect(mockedFs.rm).toHaveBeenCalledWith(
+      expect.stringContaining('720p'),
+      expect.objectContaining({ recursive: true, force: true }),
+    );
+  });
+
   it('已有可用 HLS 时，补生成新档位失败不会误伤旧档位', async () => {
     const episode = createEpisodeDoc();
     const service = createService();

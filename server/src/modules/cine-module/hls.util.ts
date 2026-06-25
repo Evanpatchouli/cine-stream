@@ -28,6 +28,8 @@ export const HLS_PROFILE_VALUES = Object.keys(
   HLS_PROFILE_PRESETS,
 ) as HlsProfile[];
 
+const HLS_DEFAULT_PROFILE_ORDER: HlsProfile[] = ['1080p', '720p', '360p'];
+
 export interface HlsVariantLike {
   profile: HlsProfile;
   width: number;
@@ -36,16 +38,14 @@ export interface HlsVariantLike {
   playlist_path: string;
 }
 
+export function resolveAutoHlsProfiles(sourceHeight: number): HlsProfile[] {
+  return HLS_DEFAULT_PROFILE_ORDER.filter(
+    (profile) => sourceHeight >= HLS_PROFILE_PRESETS[profile].height,
+  );
+}
+
 export function resolveAutoHlsProfile(sourceHeight: number): HlsProfile | null {
-  if (sourceHeight >= HLS_PROFILE_PRESETS['720p'].height) {
-    return '720p';
-  }
-
-  if (sourceHeight >= HLS_PROFILE_PRESETS['360p'].height) {
-    return '360p';
-  }
-
-  return null;
+  return resolveAutoHlsProfiles(sourceHeight)[0] || null;
 }
 
 export function computeScaledWidth(

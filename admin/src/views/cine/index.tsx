@@ -765,7 +765,7 @@ export default function CineManageView() {
         ? "请先保存当前视频文件变更，再生成 HLS"
         : hlsBusy
           ? "当前剧集的 HLS 任务正在后台处理中"
-          : "默认优先生成 720p；源视频低于 720p 时自动选择可用档位";
+          : "默认会按源视频分辨率生成一组自适应 HLS 档位";
     const deleteDisabledReason = !record.id
       ? "请先保存剧集"
       : hlsBusy
@@ -773,11 +773,13 @@ export default function CineManageView() {
         : "删除当前剧集已有的 HLS 产物";
     const hlsHelperText =
       record.hls_status === "ready"
-        ? "客户端会优先播放 HLS，失败时自动回退直链视频。"
+        ? record.hls_last_error
+          ? `已生成可用 HLS，但部分档位处理失败：${record.hls_last_error}`
+          : "客户端会优先播放 HLS，失败时自动回退直链视频。"
         : record.hls_status === "processing"
           ? hlsProfiles.length
             ? "后台正在生成新的 HLS 档位，当前已有可用 HLS 仍可继续播放。"
-            : "HLS 已加入后台任务队列，生成完成后会自动刷新状态。"
+            : "HLS 已加入后台任务队列，默认会按源视频分辨率依次生成可用档位。"
           : record.hls_status === "failed"
             ? record.hls_last_error || "上次 HLS 生成失败，可重新尝试。"
             : "未生成 HLS 时，客户端仍会继续使用直链视频播放。";
@@ -1185,7 +1187,7 @@ export default function CineManageView() {
           <div>
             <div style={{ color: "#111827", fontWeight: 600, marginBottom: 6 }}>怎么配置 HLS ?</div>
             <div>1. 先保存剧集，并确认视频文件已经选好。</div>
-            <div>2. 点“生成默认 HLS”会优先生成 720p；也可以按需单独生成 1080p、720p、360p。</div>
+            <div>2. 点“生成默认 HLS”会按源视频分辨率自动生成一组自适应档位；也可以按需单独生成 1080p、720p、360p。</div>
             <div>3. 状态显示“生成中”时，说明后台正在处理，完成后这里会自动刷新。</div>
             <div>4. 生成 HLS 的耗时取决于视频大小和服务器性能。</div>
             <div>5. HLS 生成任务一般在几到十几分钟内结束，请耐心等待。</div>

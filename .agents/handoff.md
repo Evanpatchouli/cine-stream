@@ -6,8 +6,10 @@
 - 2026-06-26：HLS 生成接口已改为异步后台任务。`POST /api/admin/cines/episodes/:episodeId/hls/build` 现在返回 `202 Accepted`，只负责校验并把任务加入基于 Redis + BullMQ 的串行 HLS 队列；真正的 ffmpeg 转码会在请求返回后执行。
 - 2026-06-26：管理端“配置剧集”弹窗已把 HLS 相关操作拆成独立一行，状态、已生成档位、生成按钮和说明文案集中展示；当存在 `processing` 状态时会自动轮询刷新，并新增“什么是 HLS？”帮助入口与说明弹窗。
 - 2026-06-26：已修复 Redis + BullMQ 入队异常。根因是自定义 `jobId` 使用了 `episode-hls:${episodeId}`，而 BullMQ 不允许 `jobId` 含 `:`；现已改为 `episode-hls-${episodeId}`。
-- 2026-06-26：HLS 默认优先生成 `720p`；若源视频高度不足，会自动降到可用默认档位。也可以显式生成 `1080p`、`720p`、`360p`。当前 HLS 文件落在 `MEDIA_HLS_ROOT`（默认 `./storage/hls`）下，不改动原视频目录结构。
+- 2026-06-26：阶段 2B 已完成。HLS 默认生成已改为按源视频分辨率串行输出自适应档位集：`1080p + 720p + 360p`、`720p + 360p` 或仅 `360p`；也仍支持显式补生成单一档位。当前 HLS 文件落在 `MEDIA_HLS_ROOT`（默认 `./storage/hls`）下，不改动原视频目录结构。
+- 2026-06-26：阶段 2B 已完成用户人工验收。当前已确认管理端可成功触发并生成 HLS，客户端也能正常播放 HLS 视频，至少明面链路已跑通。
 - 2026-06-26：客户端播放页已接入 HLS 优先播放与直链回退。若当前剧集存在 `hls_url`，Safari 会优先走原生 HLS，Chrome / Edge 等会通过 `hls.js` 播放；HLS 致命错误时自动回退到 `/media/videos/:episodeId`。
+- 2026-06-26：客户端播放页已补齐视频缓冲提示。当前视频在首帧加载、`waiting/stalled` 卡顿或拖动进度条 seek 期间，会在播放器中央显示轻量半透明的转圈 loading；用户主动暂停、播放结束或加载失败时会自动收起，不影响原有控制层。
 - 2026-06-26：后端保存剧集时已改为尽量复用已有 `episode.id`，不再整批删重建。若剧集源文件 `file_path` 变化，会自动清理该集已有 HLS 文件并重置 HLS 状态，避免衍生资源错配。
 - 2026-06-26：阶段 1 媒体访问性能优化已完成。剧集公开播放地址已从 `/api/cines/episodes/:episodeId/stream` 迁移到 `/media/videos/:episodeId`；后端新增独立 `MediaController`，并通过 `main.ts` 将该路由排除在全局 `/api` 前缀之外。
 - 2026-06-26：`/media/videos/:episodeId` 已补齐 Range 加固和缓存友好响应头，支持 `GET` / `HEAD`、`Accept-Ranges`、`ETag`、`Last-Modified`、`Cache-Control`；无效 Range 现在返回 `416`，并带 `Content-Range: bytes */total`。
@@ -78,6 +80,9 @@
 - 本轮 `pnpm --filter @cine-stream/server build` 通过。
 - 本轮 `pnpm --filter @cine-stream/admin build` 通过；Redis + BullMQ 队列迁移、HLS 帮助入口与状态展示已通过类型检查和产物构建。
 - 本轮 `pnpm --filter @cine-stream/client build` 通过；引入 `hls.js` 后仍有既有 chunk size warning，不影响产物。
+- 本轮 `pnpm --filter @cine-stream/client build` 通过；播放页中央 loading 提示改动已通过类型检查和产物构建。
+- 本轮用户人工验收通过：管理端已成功构建 HLS，客户端可正常观看 HLS 视频。
+- 本轮 `pnpm --filter @cine-stream/server test -- cine.service.spec.ts hls.util.spec.ts episode-hls.job.service.spec.ts media.controller.spec.ts video-stream.util.spec.ts` 通过；已覆盖默认多档生成与部分失败保留可用档位。
 - 本轮通过独立探针验证：`ioredis` 直连 `redis://127.0.0.1:6379` 可正常 `PING PONG`；BullMQ 在使用不含 `:` 的 `jobId` 时可成功入队。
 - 本轮 `pnpm --filter @cine-stream/server test -- media.controller.spec.ts video-stream.util.spec.ts` 通过。
 - 本轮 `pnpm --filter @cine-stream/server build` 通过。
@@ -106,10 +111,11 @@
 
 ## 注意事项
 
-- 本轮只实现了阶段 2A：手动单集生成 HLS、后台 Redis + BullMQ 串行任务队列、管理端轮询状态和客户端优先播放。尚未实现批量转码、失败重试，也尚未在上海 Nginx 上接缓存。
+- 本轮已完成阶段 2B：默认 HLS 可按源视频分辨率生成自适应档位集；但仍未实现批量转码、失败重试，也尚未在上海 Nginx 上接缓存。
+- 客户端当前没有现成的自动化 UI 测试基建，本轮播放页 loading 提示主要通过代码审阅和 `client build` 验证，尚未补浏览器级自动化回归。
 - 本轮已补一个稳态修复：若某集已经有可用 HLS，后续补生成某个档位失败时，服务端会保留旧的可用 variant，不会把整集 HLS 一起打成不可用；删除影视时也会同步清理其 HLS 落盘目录。
 - 当前只有 HLS 后台任务使用 Redis + BullMQ；项目内其他 `cache` 相关能力未在本轮迁移，仍保持原实现。
-- 本轮没有对真实视频执行一次完整 ffmpeg 转 HLS 的人工联调；目前验证范围是单元测试、三端构建，以及你刚才对直链播放的人工验证。
+- 本轮已补真实链路人工验收：你已确认可成功构建 HLS，客户端也能正常观看；但验收范围仍以单集手动操作和基础播放链路为主，尚未覆盖批量转码、失败重试和线上缓存场景。
 - 管理端在剧集弹窗里只允许“已保存且源文件路径未改动”的 episode 直接生成 HLS；如果刚改过 `file_path`，需要先保存剧集，避免后台按旧路径转码。
 - `MediaController` 的控制器单测覆盖了 `/media/videos/:episodeId` 的 GET / HEAD / 416 行为，但本轮没有启动真实服务做 `curl` 级联调。
 - 当前“已看完”阈值为进度达到 98% 或剩余时长不超过 3 秒；此类记录不会再从片尾附近续播。

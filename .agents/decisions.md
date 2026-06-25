@@ -73,6 +73,7 @@
 - HLS 生成接口改为 Redis + BullMQ 队列：`POST /api/admin/cines/episodes/:episodeId/hls/build` 只负责校验、入队并立即返回 `202`，真正的 ffmpeg 转码在后台串行执行。
 - 当前只迁移 HLS 转码队列到 Redis；项目内其他 `cache` 相关能力保持原实现，不与本轮改造绑定。
 - `hls_status=processing` 在阶段 2A 异步版中同时表示“已入队 / 正在处理”。管理端通过轮询刷新该状态，不额外引入 `queued` 字段。
+- 阶段 2B 默认 HLS 生成改为“单任务内串行多档生成”：不带 `profile` 时，后端会按源视频分辨率生成一组自适应档位；显式传 `profile` 时仍只补生成单一档位。
 
 ## 环境变量
 

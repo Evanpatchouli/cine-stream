@@ -3,15 +3,23 @@ import {
   computeScaledWidth,
   getHlsCacheControl,
   getHlsContentType,
+  resolveAutoHlsProfiles,
   resolveAutoHlsProfile,
 } from './hls.util';
 
 describe('hls.util', () => {
-  it('默认档位优先选择 720p，其次 360p', () => {
-    expect(resolveAutoHlsProfile(1080)).toBe('720p');
+  it('默认档位优先选择最高可用档位', () => {
+    expect(resolveAutoHlsProfile(1080)).toBe('1080p');
     expect(resolveAutoHlsProfile(720)).toBe('720p');
     expect(resolveAutoHlsProfile(540)).toBe('360p');
     expect(resolveAutoHlsProfile(240)).toBeNull();
+  });
+
+  it('可以按源分辨率推导默认自适应档位集合', () => {
+    expect(resolveAutoHlsProfiles(1080)).toEqual(['1080p', '720p', '360p']);
+    expect(resolveAutoHlsProfiles(900)).toEqual(['720p', '360p']);
+    expect(resolveAutoHlsProfiles(360)).toEqual(['360p']);
+    expect(resolveAutoHlsProfiles(240)).toEqual([]);
   });
 
   it('会把缩放宽度修正为偶数', () => {
