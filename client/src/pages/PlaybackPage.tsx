@@ -147,7 +147,7 @@ function shouldShowVideoBuffering(video: HTMLVideoElement) {
     return true;
   }
 
-  return !video.paused && video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA;
+  return false;
 }
 
 function canSeekToPlaybackPosition(
@@ -1038,6 +1038,9 @@ export function PlaybackPage() {
             }}
             onWaiting={() => setIsVideoBuffering(true)}
             onStalled={() => setIsVideoBuffering(true)}
+            onProgress={(event) => {
+              syncVideoBufferingState(event.currentTarget);
+            }}
             onSeeking={(event) => {
               if (!isScrubbingRef.current) {
                 syncVideoBufferingState(event.currentTarget);
@@ -1048,7 +1051,10 @@ export function PlaybackPage() {
               markResumeReady();
             }}
             onTimeUpdate={(event) => {
-              setCurrentTime(event.currentTarget.currentTime || 0);
+              const video = event.currentTarget;
+
+              setCurrentTime(video.currentTime || 0);
+              syncVideoBufferingState(video);
               persistWatchProgress();
             }}
             onVolumeChange={(event) => {

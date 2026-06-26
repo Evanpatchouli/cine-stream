@@ -39,3 +39,4 @@
 - 移动端播放器的“用户主动拖动 seek”和“真实网络缓冲”要分开建模；如果在 scrubbing 过程中立刻挂载 loading 覆盖层，再叠加连续真实 seek，真机 touch 手势很容易被打断。
 - 真机浏览器播放原生 HLS 时，`loadedmetadata` 阶段的 `video.duration` 不一定可靠；如果后端已经有可信的源视频时长，前端应把它作为显示和进度逻辑的兜底值。
 - 续播恢复不能把“执行过 `video.currentTime = target`”当成成功信号；尤其是真机原生 HLS，必须等媒体真实到达目标位置后再标记恢复完成。
+- HLS 正常播放时 `video.readyState` 可能长时间停在 `HAVE_CURRENT_DATA`；中央缓冲提示不应要求 `HAVE_FUTURE_DATA`，并应在 `timeupdate/progress` 中重新同步状态，避免 `waiting/stalled` 后残留转圈。
