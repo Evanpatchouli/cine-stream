@@ -153,6 +153,34 @@ describe('CineService', () => {
     expect(episode.save).toHaveBeenCalledTimes(1);
   });
 
+  it('影视列表筛选会组合关键字和类型条件', async () => {
+    const cineId = new Types.ObjectId();
+    const matchedEpisode = createEpisodeDoc({ cine_id: cineId });
+    const episodeModel = {
+      find: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue(createExecResult([matchedEpisode])),
+      }),
+    };
+    const service = createService({ episodeModel });
+
+    const filter = await (service as any).buildCineFilter({
+      keyword: '量子',
+      genre: '科幻',
+    });
+
+    expect(filter).toEqual({
+      $and: [
+        expect.objectContaining({
+          $or: expect.arrayContaining([
+            { name: expect.any(RegExp) },
+            { _id: { $in: [cineId] } },
+          ]),
+        }),
+        { genre: '科幻' },
+      ],
+    });
+  });
+
   it('Redis 队列中找不到任务时，会把 processing 回退到可用 HLS 状态', async () => {
     const episode = createEpisodeDoc({
       hls_status: 'processing',

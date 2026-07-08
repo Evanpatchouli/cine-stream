@@ -13,8 +13,9 @@ export class CineController {
   @Get()
   async findAll(
     @Query('keyword') keyword?: string,
+    @Query('genre') genre?: string,
   ): Promise<Resp<Record<string, any>[]>> {
-    const cines = await this.cineService.findAll(keyword);
+    const cines = await this.cineService.findAll({ keyword, genre });
     return Resp.success(cines);
   }
 

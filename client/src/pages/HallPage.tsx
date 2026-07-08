@@ -97,13 +97,7 @@ export function HallPage() {
   const [history, setHistory] = useState<WatchHistoryItem[]>([]);
   const searchKeyword = submittedKeyword.trim();
   const isSearching = Boolean(searchKeyword);
-  const visibleCines = useMemo(() => {
-    if (!activeGenre) {
-      return cines;
-    }
-
-    return cines.filter((cine) => cine.genre?.includes(activeGenre));
-  }, [activeGenre, cines]);
+  const visibleCines = cines;
   const trending = visibleCines.slice(0, 2);
   const featured = visibleCines[0] || null;
   const picked = visibleCines.slice(1, 3);
@@ -138,13 +132,27 @@ export function HallPage() {
     const nextKeyword = searchText.trim();
     setSearchText(nextKeyword);
     setSubmittedKeyword(nextKeyword);
-    void loadCines(nextKeyword || undefined);
+    void loadCines({
+      keyword: nextKeyword || undefined,
+      genre: activeGenre || undefined,
+    });
   };
 
   const handleClearSearch = () => {
     setSearchText("");
     setSubmittedKeyword("");
-    void loadCines();
+    void loadCines({
+      genre: activeGenre || undefined,
+    });
+  };
+
+  const handleGenreChange = (genre: string) => {
+    const nextGenre = genre === "全部" ? "" : genre;
+    setActiveGenre(nextGenre);
+    void loadCines({
+      keyword: searchKeyword || undefined,
+      genre: nextGenre || undefined,
+    });
   };
 
   return (
@@ -167,7 +175,9 @@ export function HallPage() {
             setSearchText(value);
             if (!value.trim() && submittedKeyword) {
               setSubmittedKeyword("");
-              void loadCines();
+              void loadCines({
+                genre: activeGenre || undefined,
+              });
             }
           }}
           inputProps={{ "aria-label": "搜索影视" }}
@@ -197,7 +207,7 @@ export function HallPage() {
               color={selected ? "primary" : "default"}
               variant={selected ? "filled" : "outlined"}
               aria-pressed={selected}
-              onClick={() => setActiveGenre(label === "全部" ? "" : label)}
+              onClick={() => handleGenreChange(label)}
               sx={{ flexShrink: 0, borderColor: "#c6c5d4" }}
             />
           );

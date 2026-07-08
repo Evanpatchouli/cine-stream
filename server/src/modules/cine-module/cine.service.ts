@@ -114,6 +114,11 @@ interface HlsBuildFailure {
   profile: HlsProfile;
 }
 
+export interface CineListQuery {
+  keyword?: string;
+  genre?: string;
+}
+
 @Injectable()
 export class CineService {
   constructor(
@@ -128,7 +133,7 @@ export class CineService {
     size: number,
     keyword?: string,
   ): Promise<PaginatedResult<Record<string, any>>> {
-    const filter = await this.buildKeywordFilter(keyword);
+    const filter = await this.buildCineFilter({ keyword });
     const [list, total] = await Promise.all([
       this.cineModel
         .find(filter)
@@ -150,8 +155,8 @@ export class CineService {
     };
   }
 
-  async findAll(keyword?: string): Promise<Record<string, any>[]> {
-    const filter = await this.buildKeywordFilter(keyword);
+  async findAll(query: CineListQuery = {}): Promise<Record<string, any>[]> {
+    const filter = await this.buildCineFilter(query);
     const cines = await this.cineModel
       .find(filter)
       .sort({ created_at: -1 })
@@ -632,9 +637,33 @@ export class CineService {
     };
   }
 
-  private async buildKeywordFilter(
-    keyword?: string,
+  private async buildCineFilter(
+    query: CineListQuery = {},
   ): Promise<Record<string, any>> {
+    const filters: Record<string, any>[] = [];
+    const keywordFilter = await this.buildKeywordFilter(query.keyword);
+    const genre = query.genre?.trim();
+
+    if (Object.keys(keywordFilter).length) {
+      filters.push(keywordFilter);
+    }
+
+    if (genre) {
+      filters.push({ genre });
+    }
+
+    if (!filters.length) {
+      return {};
+    }
+
+    if (filters.length === 1) {
+      return filters[0];
+    }
+
+    return { $and: filters };
+  }
+
+  private async buildKeywordFilter(keyword?: string): Promise<Record<string, any>> {
     const text = keyword?.trim();
     if (!text) {
       return {};

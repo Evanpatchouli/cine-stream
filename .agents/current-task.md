@@ -15,6 +15,7 @@
     - 已拆分 3 个子 agent 并行处理播放器页、HallPage 和其他页面空壳按钮扫描
     - 已完成播放页剧季入口说明态、无视频提示和影院视图空资源反馈
     - 已完成影厅页分类筛选、移除隐藏空壳播放按钮、AppShell 搜索入口聚焦搜索框
+    - 已按反馈将影厅页分类筛选从本地过滤改为 `GET /api/cines?genre=` 后端查询
     - 已通过 client `tsc -b`、client `vite build`、`git diff --check` 和触碰文件 UTF-8 无 BOM 检查
 
 - 2026-07-08：客户端 P1 UI backlog 后端化收口

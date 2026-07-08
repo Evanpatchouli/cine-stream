@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { fetchCines } from "@/api/cine.api";
+import { fetchCines, type QueryCinesParams } from "@/api/cine.api";
 import type { Cine } from "@/types";
 
 interface CineState {
@@ -7,7 +7,7 @@ interface CineState {
   loaded: boolean;
   loading: boolean;
   error: string;
-  load: (keyword?: string) => Promise<void>;
+  load: (params?: QueryCinesParams) => Promise<void>;
   byId: (id?: string) => Cine | null;
   search: (keyword?: string) => Cine[];
 }
@@ -40,10 +40,10 @@ export const useCineStore = create<CineState>()((set, get) => ({
   loaded: false,
   loading: false,
   error: "",
-  load: async (keyword) => {
+  load: async (params) => {
     set({ loading: true, error: "" });
     try {
-      const resp = await fetchCines(keyword);
+      const resp = await fetchCines(params);
       set({
         cines: resp.getData() || [],
         loaded: true,
