@@ -14,6 +14,7 @@ import {
 import MovieFilterRoundedIcon from "@mui/icons-material/MovieFilterRounded";
 import PhoneIphoneRoundedIcon from "@mui/icons-material/PhoneIphoneRounded";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
+import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
 import { useAuthStore } from "@/stores/auth";
 
@@ -22,13 +23,23 @@ export function LoginPage() {
   const login = useAuthStore((state) => state.login);
   const loading = useAuthStore((state) => state.loading);
   const error = useAuthStore((state) => state.error);
-  const [phone, setPhone] = useState("");
+  const rememberPhone = useAuthStore((state) => state.rememberPhone);
+  const rememberedPhone = useAuthStore((state) => state.rememberedPhone);
+  const setRememberPhone = useAuthStore((state) => state.setRememberPhone);
+  const [phone, setPhone] = useState(rememberedPhone);
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [forgotPasswordNotice, setForgotPasswordNotice] = useState("");
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    await login(phone, password);
-    navigate("/hall", { replace: true });
+    setForgotPasswordNotice("");
+    try {
+      await login(phone, password);
+      navigate("/hall", { replace: true });
+    } catch {
+      // 错误信息由 auth store 写入 error，页面留在登录态展示失败原因。
+    }
   };
 
   return (
@@ -49,6 +60,9 @@ export function LoginPage() {
 
         <Box component="form" onSubmit={handleSubmit} className="flex flex-col gap-3">
           {error ? <Alert severity="error">{error}</Alert> : null}
+          {forgotPasswordNotice ? (
+            <Alert severity="info">{forgotPasswordNotice}</Alert>
+          ) : null}
           <TextField
             required
             value={phone}
@@ -75,7 +89,7 @@ export function LoginPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="密码"
-            type="password"
+            type={showPassword ? "text" : "password"}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -84,8 +98,18 @@ export function LoginPage() {
               ),
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton edge="end">
-                    <VisibilityOffRoundedIcon />
+                  <IconButton
+                    edge="end"
+                    type="button"
+                    aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    onMouseDown={(event) => event.preventDefault()}
+                  >
+                    {showPassword ? (
+                      <VisibilityOffRoundedIcon />
+                    ) : (
+                      <VisibilityRoundedIcon />
+                    )}
                   </IconButton>
                 </InputAdornment>
               ),
@@ -101,13 +125,25 @@ export function LoginPage() {
 
           <div className="mt-1 flex items-center justify-between">
             <FormControlLabel
-              control={<Checkbox color="primary" />}
-              label="记住我"
+              control={
+                <Checkbox
+                  checked={rememberPhone}
+                  color="primary"
+                  onChange={(event) => setRememberPhone(event.target.checked)}
+                />
+              }
+              label="记住手机号"
               sx={{ color: "#454652" }}
             />
-              <button type="button" className="font-semibold text-primary">
-                忘记密码？
-              </button>
+            <button
+              type="button"
+              className="font-semibold text-primary"
+              onClick={() => {
+                setForgotPasswordNotice("暂未开放自助找回密码，请联系管理员重置密码。");
+              }}
+            >
+              忘记密码？
+            </button>
           </div>
 
           <Button
