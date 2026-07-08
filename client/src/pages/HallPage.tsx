@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Chip, IconButton, InputBase, Typography } from "@mui/material";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import MicRoundedIcon from "@mui/icons-material/MicRounded";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
 import { AppShell } from "@/components/AppShell";
 import { fetchWatchHistory } from "@/api/watch.api";
@@ -82,11 +83,19 @@ export function HallPage() {
   const cines = useCineStore((state) => state.cines);
   const loading = useCineStore((state) => state.loading);
   const error = useCineStore((state) => state.error);
+  const searchCines = useCineStore((state) => state.search);
   const navigate = useNavigate();
-  const trending = cines.slice(0, 2);
-  const featured = cines[0] || null;
-  const picked = cines.slice(1, 3);
+  const [searchText, setSearchText] = useState("");
   const [history, setHistory] = useState<WatchHistoryItem[]>([]);
+  const searchKeyword = searchText.trim();
+  const isSearching = Boolean(searchKeyword);
+  const visibleCines = useMemo(
+    () => searchCines(searchKeyword),
+    [cines, searchCines, searchKeyword],
+  );
+  const trending = visibleCines.slice(0, 2);
+  const featured = visibleCines[0] || null;
+  const picked = visibleCines.slice(1, 3);
   const continueItems = useMemo(
     () => history.filter((item) => {
       const progress = resolveHistoryProgress(item);
@@ -101,18 +110,42 @@ export function HallPage() {
       .catch(() => setHistory([]));
   }, []);
 
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSearchText(searchKeyword);
+  };
+
+  const handleClearSearch = () => {
+    setSearchText("");
+  };
+
   return (
     <AppShell>
-      <Box className="relative mb-7 flex h-[52px] items-center bg-[#f1f3f4] px-3">
-        <SearchRoundedIcon sx={{ color: "#767683", mr: 1 }} />
+      <Box
+        component="form"
+        className="relative mb-7 flex h-[52px] items-center bg-[#f1f3f4] px-3"
+        onSubmit={handleSearchSubmit}
+      >
+        <IconButton type="submit" aria-label="搜索" sx={{ mr: 0.5 }}>
+          <SearchRoundedIcon sx={{ color: "#767683" }} />
+        </IconButton>
         <InputBase
           placeholder="搜索剧集、类型、演员..."
           fullWidth
+          value={searchText}
+          onChange={(event) => setSearchText(event.target.value)}
+          inputProps={{ "aria-label": "搜索影视" }}
           sx={{ color: "#454652", fontSize: 16 }}
         />
-        <IconButton>
-          <MicRoundedIcon sx={{ color: "#767683" }} />
-        </IconButton>
+        {searchText ? (
+          <IconButton
+            type="button"
+            aria-label="清空搜索"
+            onClick={handleClearSearch}
+          >
+            <CloseRoundedIcon sx={{ color: "#767683" }} />
+          </IconButton>
+        ) : null}
       </Box>
 
       <div className="-mx-container-padding mb-8 flex gap-2 overflow-x-auto px-container-padding hide-scrollbar">
@@ -129,100 +162,123 @@ export function HallPage() {
         )}
       </div>
 
-      <section className="mb-section-gap">
-        <Typography variant="h3" sx={{ mb: 2 }}>
-          热门推荐
-        </Typography>
-        {trending.length ? (
-          <div className="grid grid-cols-2 gap-4">
-            {trending.map((cine) => (
-              <PosterCard key={cine.id} cine={cine} />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
-            {loading ? "正在加载影视..." : error || "暂无影视内容"}
-          </div>
-        )}
-      </section>
-
-      <section className="-mx-container-padding mb-section-gap px-container-padding">
-        <Typography variant="h3" sx={{ mb: 2 }}>
-          继续观看
-        </Typography>
-        {continueItems.length ? (
-          <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar">
-            {continueItems.slice(0, 8).map((item) => (
-              <ContinueCard key={item.id} item={item} />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
-            暂无观看记录
-          </div>
-        )}
-      </section>
-
-      <section>
-        <Typography variant="h3" sx={{ mb: 2 }}>
-          为你精选
-        </Typography>
-        {featured ? (
-          <div className="grid grid-cols-2 gap-4 auto-rows-[160px]">
-            <div
-              className="relative col-span-2 row-span-2 cursor-pointer overflow-hidden rounded-xl shadow-md3"
-              onClick={() => navigate(toPlaybackPath(featured.id))}
-            >
-              <img
-                src={
-                  resolveMediaUrl(featured.backdrop || featured.poster) ||
-                  MEDIA_PLACEHOLDERS.backdrop
-                }
-                alt={featured.name}
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-black/30 to-transparent p-4 text-white">
-                {featured.badge ? (
-                  <span className="mb-2 w-max rounded bg-white/20 px-2 py-1 text-[10px]">
-                    {featured.badge}
-                  </span>
-                ) : null}
-                <h3 className="text-2xl font-semibold leading-tight">
-                  {featured.name}
-                </h3>
-                <p className="mt-1 line-clamp-2 text-sm">
-                  {featured.description || featured.meta || "暂无简介"}
-                </p>
-              </div>
+      {isSearching ? (
+        <section>
+          <Typography variant="h3" sx={{ mb: 2 }}>
+            搜索结果
+          </Typography>
+          {visibleCines.length ? (
+            <div className="grid grid-cols-2 gap-4">
+              {visibleCines.map((cine) => (
+                <PosterCard key={cine.id} cine={cine} />
+              ))}
             </div>
-            {picked.map((cine) => (
-              <div
-                key={cine.id}
-                className="relative cursor-pointer overflow-hidden rounded-xl shadow-md3"
-                onClick={() => navigate(toPlaybackPath(cine.id))}
-              >
-                <img
-                  src={
-                    resolveMediaUrl(cine.backdrop || cine.poster) ||
-                    MEDIA_PLACEHOLDERS.backdrop
-                  }
-                  alt={cine.name}
-                  className="h-full w-full object-cover"
-                />
-                <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/70 to-transparent p-2">
-                  <span className="text-sm font-semibold text-white">
-                    {cine.name}
-                  </span>
-                </div>
+          ) : (
+            <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
+              {loading
+                ? "正在加载影视..."
+                : error || `没有找到与“${searchKeyword}”相关的影视`}
+            </div>
+          )}
+        </section>
+      ) : (
+        <>
+          <section className="mb-section-gap">
+            <Typography variant="h3" sx={{ mb: 2 }}>
+              热门推荐
+            </Typography>
+            {trending.length ? (
+              <div className="grid grid-cols-2 gap-4">
+                {trending.map((cine) => (
+                  <PosterCard key={cine.id} cine={cine} />
+                ))}
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
-            暂无精选内容
-          </div>
-        )}
-      </section>
+            ) : (
+              <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
+                {loading ? "正在加载影视..." : error || "暂无影视内容"}
+              </div>
+            )}
+          </section>
+
+          <section className="-mx-container-padding mb-section-gap px-container-padding">
+            <Typography variant="h3" sx={{ mb: 2 }}>
+              继续观看
+            </Typography>
+            {continueItems.length ? (
+              <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar">
+                {continueItems.slice(0, 8).map((item) => (
+                  <ContinueCard key={item.id} item={item} />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
+                暂无观看记录
+              </div>
+            )}
+          </section>
+
+          <section>
+            <Typography variant="h3" sx={{ mb: 2 }}>
+              为你精选
+            </Typography>
+            {featured ? (
+              <div className="grid grid-cols-2 gap-4 auto-rows-[160px]">
+                <div
+                  className="relative col-span-2 row-span-2 cursor-pointer overflow-hidden rounded-xl shadow-md3"
+                  onClick={() => navigate(toPlaybackPath(featured.id))}
+                >
+                  <img
+                    src={
+                      resolveMediaUrl(featured.backdrop || featured.poster) ||
+                      MEDIA_PLACEHOLDERS.backdrop
+                    }
+                    alt={featured.name}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-black/30 to-transparent p-4 text-white">
+                    {featured.badge ? (
+                      <span className="mb-2 w-max rounded bg-white/20 px-2 py-1 text-[10px]">
+                        {featured.badge}
+                      </span>
+                    ) : null}
+                    <h3 className="text-2xl font-semibold leading-tight">
+                      {featured.name}
+                    </h3>
+                    <p className="mt-1 line-clamp-2 text-sm">
+                      {featured.description || featured.meta || "暂无简介"}
+                    </p>
+                  </div>
+                </div>
+                {picked.map((cine) => (
+                  <div
+                    key={cine.id}
+                    className="relative cursor-pointer overflow-hidden rounded-xl shadow-md3"
+                    onClick={() => navigate(toPlaybackPath(cine.id))}
+                  >
+                    <img
+                      src={
+                        resolveMediaUrl(cine.backdrop || cine.poster) ||
+                        MEDIA_PLACEHOLDERS.backdrop
+                      }
+                      alt={cine.name}
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/70 to-transparent p-2">
+                      <span className="text-sm font-semibold text-white">
+                        {cine.name}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
+                暂无精选内容
+              </div>
+            )}
+          </section>
+        </>
+      )}
 
       <button
         className="fixed bottom-5 right-[calc(50%-174px)] hidden h-12 w-12 items-center justify-center rounded-full bg-primary text-white shadow-lg"

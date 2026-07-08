@@ -9,7 +9,31 @@ interface CineState {
   error: string;
   load: () => Promise<void>;
   byId: (id?: string) => Cine | null;
+  search: (keyword?: string) => Cine[];
 }
+
+const normalizeSearchText = (value?: string): string =>
+  (value || "").trim().toLocaleLowerCase();
+
+const buildCineSearchText = (cine: Cine): string =>
+  [
+    cine.name,
+    cine.description,
+    cine.meta,
+    cine.year,
+    cine.season,
+    cine.rating,
+    cine.badge,
+    ...(cine.genre || []),
+    ...(cine.cast || []),
+    ...(cine.episodes || []).flatMap((episode) => [
+      episode.name,
+      episode.description,
+    ]),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase();
 
 export const useCineStore = create<CineState>()((set, get) => ({
   cines: [],
@@ -38,5 +62,17 @@ export const useCineStore = create<CineState>()((set, get) => ({
   },
   byId: (id) => {
     return get().cines.find((cine) => cine.id === id) || null;
+  },
+  search: (keyword) => {
+    const normalizedKeyword = normalizeSearchText(keyword);
+    const { cines } = get();
+
+    if (!normalizedKeyword) {
+      return cines;
+    }
+
+    return cines.filter((cine) =>
+      buildCineSearchText(cine).includes(normalizedKeyword),
+    );
   },
 }));
