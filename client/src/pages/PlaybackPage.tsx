@@ -15,6 +15,10 @@ import VolumeOffRoundedIcon from "@mui/icons-material/VolumeOffRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import { AppShell } from "@/components/AppShell";
 import { fetchCineDetail } from "@/api/cine.api";
+import {
+  getPlaybackPreferences,
+  updatePlaybackPreferences,
+} from "@/api/user.api";
 import { fetchCineWatchHistory, recordWatchHistory } from "@/api/watch.api";
 import { MEDIA_PLACEHOLDERS } from "@/constants";
 import { useCineStore } from "@/stores/cines";
@@ -344,6 +348,30 @@ export function PlaybackPage() {
       return;
     }
   }, [autoPlayNext]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getPlaybackPreferences()
+      .then((resp) => {
+        if (cancelled) {
+          return;
+        }
+
+        const preferences = resp.getData();
+        if (!preferences) {
+          return;
+        }
+
+        setAutoPlayNext(preferences.auto_play_next);
+        setMuted(preferences.default_muted);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setNextCountdown(null);
@@ -1276,9 +1304,13 @@ export function PlaybackPage() {
           <Switch
             checked={autoPlayNext}
             onChange={(event) => {
-              setAutoPlayNext(event.target.checked);
+              const nextAutoPlayNext = event.target.checked;
+              setAutoPlayNext(nextAutoPlayNext);
+              void updatePlaybackPreferences({
+                auto_play_next: nextAutoPlayNext,
+              }).catch(() => undefined);
 
-              if (!event.target.checked) {
+              if (!nextAutoPlayNext) {
                 setNextCountdown(null);
               }
             }}
