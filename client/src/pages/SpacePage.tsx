@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Avatar, Typography } from "@mui/material";
+import { Alert, Avatar, Snackbar, Typography } from "@mui/material";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
 import PaymentRoundedIcon from "@mui/icons-material/PaymentRounded";
@@ -18,23 +18,31 @@ import type { UserProfile, WatchOverview } from "@/types";
 function SettingRow({
   icon,
   label,
+  description,
   danger,
   onClick,
 }: {
   icon: ReactNode;
   label: string;
+  description?: string;
   danger?: boolean;
   onClick?: () => void;
 }) {
   return (
     <button
+      type="button"
       className="flex w-full items-center justify-between rounded-xl bg-white p-4 text-left shadow-md3"
       onClick={onClick}
     >
       <span className="flex items-center gap-4">
         <span className={danger ? "text-error" : "text-primary"}>{icon}</span>
-        <span className={`text-lg ${danger ? "text-error" : "text-on-surface"}`}>
-          {label}
+        <span className="flex min-w-0 flex-col">
+          <span className={`text-lg ${danger ? "text-error" : "text-on-surface"}`}>
+            {label}
+          </span>
+          {description ? (
+            <span className="mt-1 text-sm text-on-surface-variant">{description}</span>
+          ) : null}
         </span>
       </span>
       {!danger ? <ChevronRightRoundedIcon className="text-on-surface-variant" /> : null}
@@ -50,7 +58,12 @@ export function SpacePage() {
     watched_count: 0,
     saved_count: 0,
   });
+  const [notice, setNotice] = useState("");
   const navigate = useNavigate();
+
+  const showUnsupportedNotice = (feature: string) => {
+    setNotice(`${feature}暂未开放，后端能力接入后会在这里启用。`);
+  };
 
   useEffect(() => {
     getProfile()
@@ -71,7 +84,12 @@ export function SpacePage() {
       <section className="mb-section-gap flex flex-col items-center">
         <div className="relative mb-4">
           <Avatar src={MEDIA_PLACEHOLDERS.avatar} sx={{ width: 112, height: 112 }} />
-          <button className="absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-white shadow-lg">
+          <button
+            type="button"
+            aria-label="头像编辑暂未开放"
+            className="absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-white shadow-lg"
+            onClick={() => showUnsupportedNotice("头像编辑")}
+          >
             <EditRoundedIcon />
           </button>
         </div>
@@ -101,9 +119,24 @@ export function SpacePage() {
         <h3 className="px-2 text-sm font-semibold uppercase tracking-widest text-on-surface-variant">
           账户设置
         </h3>
-        <SettingRow icon={<ManageAccountsRoundedIcon />} label="个人资料" />
-        <SettingRow icon={<PaymentRoundedIcon />} label="订阅与账单" />
-        <SettingRow icon={<TuneRoundedIcon />} label="播放偏好" />
+        <SettingRow
+          icon={<ManageAccountsRoundedIcon />}
+          label="个人资料"
+          description="暂未开放"
+          onClick={() => showUnsupportedNotice("个人资料")}
+        />
+        <SettingRow
+          icon={<PaymentRoundedIcon />}
+          label="订阅与账单"
+          description="暂未开放"
+          onClick={() => showUnsupportedNotice("订阅与账单")}
+        />
+        <SettingRow
+          icon={<TuneRoundedIcon />}
+          label="播放偏好"
+          description="暂未开放"
+          onClick={() => showUnsupportedNotice("播放偏好")}
+        />
         <div className="pt-4">
           <SettingRow
             icon={<LogoutRoundedIcon />}
@@ -116,6 +149,17 @@ export function SpacePage() {
           />
         </div>
       </section>
+
+      <Snackbar
+        open={Boolean(notice)}
+        autoHideDuration={3600}
+        onClose={() => setNotice("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="info" variant="filled" onClose={() => setNotice("")}>
+          {notice}
+        </Alert>
+      </Snackbar>
     </AppShell>
   );
 }

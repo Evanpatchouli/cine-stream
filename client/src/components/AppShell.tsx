@@ -2,6 +2,7 @@ import { ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AppBar,
+  Alert,
   Box,
   Drawer,
   IconButton,
@@ -9,6 +10,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Snackbar,
   Toolbar,
   Typography,
 } from "@mui/material";
@@ -50,6 +52,7 @@ const navItems = [
 
 export function AppShell({ children, flush = false }: AppShellProps) {
   const [open, setOpen] = useState(false);
+  const [noticeOpen, setNoticeOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -137,11 +140,21 @@ export function AppShell({ children, flush = false }: AppShellProps) {
           })}
         </List>
         <Box sx={{ mt: "auto", px: 2 }}>
-          <ListItemButton sx={{ borderRadius: 999 }}>
+          <ListItemButton
+            onClick={() => {
+              setOpen(false);
+              setNoticeOpen(true);
+            }}
+            sx={{ borderRadius: 999 }}
+          >
             <ListItemIcon sx={{ minWidth: 40 }}>
               <SettingsRoundedIcon />
             </ListItemIcon>
-            <ListItemText primary="设置" />
+            <ListItemText
+              primary="设置"
+              secondary="暂未开放"
+              secondaryTypographyProps={{ fontSize: 12 }}
+            />
           </ListItemButton>
         </Box>
       </Drawer>
@@ -155,6 +168,16 @@ export function AppShell({ children, flush = false }: AppShellProps) {
       >
         {children}
       </main>
+      <Snackbar
+        open={noticeOpen}
+        autoHideDuration={3600}
+        onClose={() => setNoticeOpen(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="info" variant="filled" onClose={() => setNoticeOpen(false)}>
+          设置页暂未开放，请先在个人空间查看当前账户信息。
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
