@@ -128,9 +128,7 @@ export class CineService {
     size: number,
     keyword?: string,
   ): Promise<PaginatedResult<Record<string, any>>> {
-    const filter = keyword
-      ? { name: { $regex: keyword.trim(), $options: 'i' } }
-      : {};
+    const filter = await this.buildKeywordFilter(keyword);
     const [list, total] = await Promise.all([
       this.cineModel
         .find(filter)
@@ -152,8 +150,12 @@ export class CineService {
     };
   }
 
-  async findAll(): Promise<Record<string, any>[]> {
-    const cines = await this.cineModel.find().sort({ created_at: -1 }).exec();
+  async findAll(keyword?: string): Promise<Record<string, any>[]> {
+    const filter = await this.buildKeywordFilter(keyword);
+    const cines = await this.cineModel
+      .find(filter)
+      .sort({ created_at: -1 })
+      .exec();
     return Promise.all(cines.map((cine) => this.withEpisodes(cine)));
   }
 
@@ -628,6 +630,45 @@ export class CineService {
       ...cine.toJSON(),
       episodes: orderedEpisodes,
     };
+  }
+
+  private async buildKeywordFilter(
+    keyword?: string,
+  ): Promise<Record<string, any>> {
+    const text = keyword?.trim();
+    if (!text) {
+      return {};
+    }
+
+    const regex = new RegExp(this.escapeRegExp(text), 'i');
+    const matchedEpisodes = await this.episodeModel
+      .find({
+        $or: [{ name: regex }, { description: regex }],
+      })
+      .select('cine_id')
+      .exec();
+    const matchedCineIds = matchedEpisodes
+      .map((episode) => episode.cine_id)
+      .filter(Boolean);
+
+    return {
+      $or: [
+        { name: regex },
+        { description: regex },
+        { genre: regex },
+        { year: regex },
+        { season: regex },
+        { rating: regex },
+        { badge: regex },
+        { meta: regex },
+        { cast: regex },
+        ...(matchedCineIds.length ? [{ _id: { $in: matchedCineIds } }] : []),
+      ],
+    };
+  }
+
+  private escapeRegExp(input: string): string {
+    return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   private resolveInsideRoot(root: string, dir: string): string {

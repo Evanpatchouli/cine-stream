@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Param } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
 import Resp from '@/common/models/Resp';
 import { Auth } from '@/decorators/auth.decorator';
 import { Tag } from '@/decorators/tag.decorator';
@@ -11,8 +11,10 @@ export class CineController {
   constructor(@Inject() private readonly cineService: CineService) {}
 
   @Get()
-  async findAll(): Promise<Resp<Record<string, any>[]>> {
-    const cines = await this.cineService.findAll();
+  async findAll(
+    @Query('keyword') keyword?: string,
+  ): Promise<Resp<Record<string, any>[]>> {
+    const cines = await this.cineService.findAll(keyword);
     return Resp.success(cines);
   }
 
