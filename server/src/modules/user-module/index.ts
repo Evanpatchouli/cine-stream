@@ -11,6 +11,7 @@ import { UserRegisterService } from './user.service.register';
 import { CaptchaModule } from '../captcha-module';
 import { OPTModule } from '../opt-module';
 import { UserManageService } from './user.service.manage';
+import { OssModule } from '../oss-module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { UserManageService } from './user.service.manage';
     RoleModule,
     CaptchaModule,
     OPTModule,
+    OssModule,
   ],
   controllers: [UserController],
   providers: [

@@ -5,6 +5,11 @@ import { Role } from '../role-module/role.schema';
 
 export type UserDocument = HydratedDocument<User>;
 
+export interface PlaybackPreferences {
+  auto_play_next: boolean;
+  default_muted: boolean;
+}
+
 @Schema({
   timestamps: {
     createdAt: 'created_at',
@@ -64,6 +69,32 @@ export class User {
     maxlength: [100, '昵称长度不能超过100个字符'],
   })
   nickname: string;
+
+  @Prop({
+    type: String,
+    trim: true,
+    default: '',
+  })
+  avatar: string;
+
+  @Prop({
+    type: {
+      auto_play_next: {
+        type: Boolean,
+        default: true,
+      },
+      default_muted: {
+        type: Boolean,
+        default: true,
+      },
+    },
+    default: () => ({
+      auto_play_next: true,
+      default_muted: true,
+    }),
+    _id: false,
+  })
+  playback_preferences: PlaybackPreferences;
 
   @Prop({
     type: Number,

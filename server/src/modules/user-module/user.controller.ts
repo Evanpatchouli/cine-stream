@@ -5,9 +5,13 @@ import {
   Get,
   Inject,
   Post,
+  Put,
   Query,
   Session,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UserService } from './user.service';
 import {
   AccountLoginForm,
@@ -17,6 +21,11 @@ import {
   EmailLoginForm,
   PhonePasswordLoginForm,
 } from './models/LoginForm';
+import {
+  PlaybackPreferencesDto,
+  UpdateAvatarDto,
+  UpdateProfileDto,
+} from './models/ProfileDto';
 import Resp from '@/common/models/Resp';
 import { ILoginResult, LoginResult } from './models/LoginResult';
 import { CurrentUser } from 'src/decorators/request-meta.decorator';
@@ -33,6 +42,7 @@ import { Ip } from '@/decorators/ip.decorator';
 import { HeaderAuthorization } from '@/decorators/header.decorator';
 import { Todo } from '@/decorators/todo.decorator';
 import { AuthApi } from '@/auth/auth.decorator';
+import { AliOssSdk, AliOssUploadResult } from '../oss-module/ali-oss.sdk';
 
 class LoginQuery {
   @IsNotEmpty()
@@ -45,6 +55,7 @@ export class UserController {
     @Inject() private readonly userService: UserService,
     @Inject() private readonly captchaService: CaptchaService,
     @Inject() private readonly optService: OPTService,
+    @Inject() private readonly aliOssSdk: AliOssSdk,
   ) {}
 
   @Post('/login')
@@ -196,6 +207,77 @@ export class UserController {
   ): Promise<Resp<Record<string, any>>> {
     const profile = await this.userService.getProfile(user.id);
     return Resp.success(profile);
+  }
+
+  @Tag('更新当前用户资料')
+  @AuthApi()
+  @Put('/profile')
+  async updateProfile(
+    @CurrentUser() user: AuthTokenPayload,
+    @Body() dto: UpdateProfileDto,
+  ): Promise<Resp<Record<string, any>>> {
+    const profile = await this.userService.updateProfile(user.id, dto);
+    return Resp.success(profile);
+  }
+
+  @Tag('更新当前用户头像地址')
+  @AuthApi()
+  @Put('/avatar')
+  async updateAvatar(
+    @CurrentUser() user: AuthTokenPayload,
+    @Body() dto: UpdateAvatarDto,
+  ): Promise<Resp<Record<string, any>>> {
+    const profile = await this.userService.updateAvatar(user.id, dto);
+    return Resp.success(profile);
+  }
+
+  @Tag('上传当前用户头像')
+  @AuthApi()
+  @Post('/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAvatar(
+    @CurrentUser() user: AuthTokenPayload,
+    @UploadedFile() file?: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+    },
+  ): Promise<Resp<Record<string, any> & { upload: AliOssUploadResult }>> {
+    if (!file) {
+      throw new BadRequestException('请选择头像图片');
+    }
+    const upload = await this.aliOssSdk.uploadImage(file);
+    const profile = await this.userService.updateAvatar(user.id, {
+      avatar: upload.url,
+    });
+    return Resp.success({
+      ...profile,
+      upload,
+    });
+  }
+
+  @Tag('当前用户播放偏好')
+  @AuthApi()
+  @Get('/playback-preferences')
+  async getPlaybackPreferences(
+    @CurrentUser() user: AuthTokenPayload,
+  ): Promise<Resp<Record<string, boolean>>> {
+    const preferences = await this.userService.getPlaybackPreferences(user.id);
+    return Resp.success(preferences);
+  }
+
+  @Tag('更新当前用户播放偏好')
+  @AuthApi()
+  @Put('/playback-preferences')
+  async updatePlaybackPreferences(
+    @CurrentUser() user: AuthTokenPayload,
+    @Body() dto: PlaybackPreferencesDto,
+  ): Promise<Resp<Record<string, boolean>>> {
+    const preferences = await this.userService.updatePlaybackPreferences(
+      user.id,
+      dto,
+    );
+    return Resp.success(preferences);
   }
 
   @Todo('FIX', 'off')
