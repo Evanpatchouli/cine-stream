@@ -13,6 +13,7 @@ import { getProfile } from "@/api/user.api";
 import { fetchOverview } from "@/api/watch.api";
 import { MEDIA_PLACEHOLDERS } from "@/constants";
 import { useAuthStore } from "@/stores/auth";
+import { resolveMediaUrl } from "@/utils/media";
 import type { UserProfile, WatchOverview } from "@/types";
 
 function SettingRow({
@@ -83,12 +84,15 @@ export function SpacePage() {
     <AppShell>
       <section className="mb-section-gap flex flex-col items-center">
         <div className="relative mb-4">
-          <Avatar src={MEDIA_PLACEHOLDERS.avatar} sx={{ width: 112, height: 112 }} />
+          <Avatar
+            src={resolveMediaUrl(profile?.avatar) || MEDIA_PLACEHOLDERS.avatar}
+            sx={{ width: 112, height: 112 }}
+          />
           <button
             type="button"
-            aria-label="头像编辑暂未开放"
+            aria-label="编辑头像"
             className="absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-white shadow-lg"
-            onClick={() => showUnsupportedNotice("头像编辑")}
+            onClick={() => navigate("/settings/profile")}
           >
             <EditRoundedIcon />
           </button>
@@ -122,8 +126,8 @@ export function SpacePage() {
         <SettingRow
           icon={<ManageAccountsRoundedIcon />}
           label="个人资料"
-          description="暂未开放"
-          onClick={() => showUnsupportedNotice("个人资料")}
+          description="编辑昵称、邮箱和头像"
+          onClick={() => navigate("/settings/profile")}
         />
         <SettingRow
           icon={<PaymentRoundedIcon />}
@@ -134,8 +138,8 @@ export function SpacePage() {
         <SettingRow
           icon={<TuneRoundedIcon />}
           label="播放偏好"
-          description="暂未开放"
-          onClick={() => showUnsupportedNotice("播放偏好")}
+          description="自动连播和默认静音"
+          onClick={() => navigate("/settings/playback")}
         />
         <div className="pt-4">
           <SettingRow

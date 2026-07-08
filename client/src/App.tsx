@@ -9,6 +9,7 @@ import { HallPage } from "@/pages/HallPage";
 import { HistoryPage } from "@/pages/HistoryPage";
 import { CollectionPage } from "@/pages/CollectionPage";
 import { SpacePage } from "@/pages/SpacePage";
+import { SettingsPage } from "@/pages/SettingsPage";
 import { PlaybackPage } from "@/pages/PlaybackPage";
 
 function RequireAuth({ children }: { children: ReactElement }) {
@@ -67,6 +68,22 @@ export default function App() {
         element={
           <RequireAuth>
             <SpacePage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <RequireAuth>
+            <SettingsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/settings/:section"
+        element={
+          <RequireAuth>
+            <SettingsPage />
           </RequireAuth>
         }
       />

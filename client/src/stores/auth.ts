@@ -13,6 +13,7 @@ interface AuthState {
   login: (phone: string, password: string) => Promise<void>;
   logout: () => void;
   setRememberPhone: (rememberPhone: boolean) => void;
+  setUser: (user: Partial<LoginUser>) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -58,6 +59,10 @@ export const useAuthStore = create<AuthState>()(
           rememberPhone,
           rememberedPhone: rememberPhone ? get().rememberedPhone : "",
         }),
+      setUser: (user) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, ...user } : state.user,
+        })),
     }),
     {
       name: "cine-stream-auth",

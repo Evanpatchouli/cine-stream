@@ -2,7 +2,6 @@ import { ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AppBar,
-  Alert,
   Box,
   Drawer,
   IconButton,
@@ -10,7 +9,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Snackbar,
   Toolbar,
   Typography,
 } from "@mui/material";
@@ -52,7 +50,6 @@ const navItems = [
 
 export function AppShell({ children, flush = false }: AppShellProps) {
   const [open, setOpen] = useState(false);
-  const [noticeOpen, setNoticeOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -141,19 +138,31 @@ export function AppShell({ children, flush = false }: AppShellProps) {
         </List>
         <Box sx={{ mt: "auto", px: 2 }}>
           <ListItemButton
+            component={Link}
+            to="/settings"
             onClick={() => {
               setOpen(false);
-              setNoticeOpen(true);
             }}
-            sx={{ borderRadius: 999 }}
+            sx={{
+              borderRadius: 999,
+              color: location.pathname.startsWith("/settings")
+                ? "#000666"
+                : "#454652",
+              bgcolor: location.pathname.startsWith("/settings")
+                ? "rgba(0,6,102,0.10)"
+                : "transparent",
+            }}
           >
-            <ListItemIcon sx={{ minWidth: 40 }}>
+            <ListItemIcon sx={{ minWidth: 40, color: "inherit" }}>
               <SettingsRoundedIcon />
             </ListItemIcon>
             <ListItemText
               primary="设置"
-              secondary="暂未开放"
-              secondaryTypographyProps={{ fontSize: 12 }}
+              primaryTypographyProps={{
+                fontWeight: location.pathname.startsWith("/settings")
+                  ? 700
+                  : 500,
+              }}
             />
           </ListItemButton>
         </Box>
@@ -168,16 +177,6 @@ export function AppShell({ children, flush = false }: AppShellProps) {
       >
         {children}
       </main>
-      <Snackbar
-        open={noticeOpen}
-        autoHideDuration={3600}
-        onClose={() => setNoticeOpen(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity="info" variant="filled" onClose={() => setNoticeOpen(false)}>
-          设置页暂未开放，请先在个人空间查看当前账户信息。
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }

@@ -38,9 +38,15 @@ export interface LoginUser {
   phone?: string;
   username?: string;
   email?: string;
+  avatar?: string;
   token: string;
   roles?: string[];
   permissions?: string[];
+}
+
+export interface PlaybackPreferences {
+  auto_play_next: boolean;
+  default_muted: boolean;
 }
 
 export interface UserProfile {
@@ -49,6 +55,8 @@ export interface UserProfile {
   phone?: string;
   username?: string;
   email?: string;
+  avatar?: string;
+  playback_preferences?: PlaybackPreferences;
 }
 
 export interface WatchHistoryItem {
