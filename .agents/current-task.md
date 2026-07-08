@@ -2,6 +2,21 @@
 
 ## 进行中
 
+- 2026-07-08：客户端 P0 UI backlog 收口
+  - 目标：完成 `.agents/client-ui-backlog.md` 中 P0 级待办，消除影厅搜索、登录辅助操作、个人空间设置入口的主要假交互。
+  - 范围：
+    - 客户端影厅页搜索交互
+    - 登录页密码可见性、记住我、忘记密码语义
+    - 个人空间与 AppShell 设置入口的明确反馈
+  - 非目标：
+    - 不新增后端账号资料/订阅/偏好接口
+    - 不处理 P1/P2 backlog
+  - 当前进度：
+    - 已拆分 3 个 worker 并行处理 P0-1、P0-2、P0-3，并完成整合
+    - 本地已确认客户端公开影视接口暂不支持 keyword，影厅搜索先按本地过滤实现
+    - 已通过 `git diff --check`、client `tsc -b`、client `vite build` 和登录页内置 Browser 验证
+    - 登录后页面自动化验证受内置 Browser 安全策略限制，未注入测试登录态；代码和构建检查已覆盖
+
 - 2026-06-26：视频访问性能优化
   - 目标：把剧集播放入口从 `/api/cines/episodes/:id/stream` 迁移到 `/media/videos/:id`，并加固 HTTP Range、HEAD 与缓存友好响应头。
   - 范围：
