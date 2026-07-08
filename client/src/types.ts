@@ -83,6 +83,14 @@ export interface WatchOverview {
   saved_count: number;
 }
 
+export interface PaginatedResult<T> {
+  list: T[];
+  total: number;
+  page: number;
+  size: number;
+  totalPages: number;
+}
+
 export interface RecordWatchHistoryInput {
   cine_id: string;
   episode_id?: string;

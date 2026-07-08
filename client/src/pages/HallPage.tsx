@@ -11,7 +11,10 @@ import { MEDIA_PLACEHOLDERS } from "@/constants";
 import { useCineStore } from "@/stores/cines";
 import { resolveMediaUrl } from "@/utils/media";
 import { toPlaybackPath } from "@/utils/routes";
-import { formatProgressText, resolveHistoryProgress } from "@/utils/watchProgress";
+import {
+  formatProgressText,
+  resolveHistoryProgress,
+} from "@/utils/watchProgress";
 import type { Cine, WatchHistoryItem } from "@/types";
 
 function PosterCard({ cine }: { cine: Cine }) {
@@ -44,19 +47,14 @@ function PosterCard({ cine }: { cine: Cine }) {
   );
 }
 
-function ContinueCard({
-  item,
-}: {
-  item: WatchHistoryItem;
-}) {
+function ContinueCard({ item }: { item: WatchHistoryItem }) {
   const navigate = useNavigate();
   const title = item.cine?.name || "未知影视";
   const episodeName = item.episode?.name ? ` - ${item.episode.name}` : "";
   const image =
     resolveMediaUrl(
       item.episode?.thumbnail || item.cine?.backdrop || item.cine?.poster,
-    ) ||
-    MEDIA_PLACEHOLDERS.thumbnail;
+    ) || MEDIA_PLACEHOLDERS.thumbnail;
   const progress = resolveHistoryProgress(item);
 
   return (
@@ -67,14 +65,19 @@ function ContinueCard({
       <div className="relative aspect-video overflow-hidden rounded-lg bg-surface-variant shadow-md3">
         <img src={image} alt={title} className="h-full w-full object-cover" />
         <div className="absolute bottom-0 left-0 h-1 w-full bg-surface-variant">
-          <div className="h-full bg-primary" style={{ width: `${progress}%` }} />
+          <div
+            className="h-full bg-primary"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       </div>
       <h3 className="mt-2 truncate text-sm font-semibold">
         {title}
         {episodeName}
       </h3>
-      <p className="mt-0.5 text-xs text-on-surface-variant">{formatProgressText(progress)}</p>
+      <p className="mt-0.5 text-xs text-on-surface-variant">
+        {formatProgressText(progress)}
+      </p>
     </article>
   );
 }
@@ -95,16 +98,17 @@ export function HallPage() {
   const featured = visibleCines[0] || null;
   const picked = visibleCines.slice(1, 3);
   const continueItems = useMemo(
-    () => history.filter((item) => {
-      const progress = resolveHistoryProgress(item);
-      return progress > 0 && progress < 100;
-    }),
+    () =>
+      history.filter((item) => {
+        const progress = resolveHistoryProgress(item);
+        return progress > 0 && progress < 100;
+      }),
     [history],
   );
 
   useEffect(() => {
-    fetchWatchHistory()
-      .then((resp) => setHistory(resp.getData() || []))
+    fetchWatchHistory({ page: 1, size: 50 })
+      .then((resp) => setHistory(resp.getData()?.list || []))
       .catch(() => setHistory([]));
   }, []);
 

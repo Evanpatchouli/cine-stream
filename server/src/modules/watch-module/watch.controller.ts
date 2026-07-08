@@ -1,10 +1,24 @@
-import { Body, Controller, Delete, Get, Inject, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Inject,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { PaginatedResult } from '@cine-stream/common';
 import type { AuthTokenPayload } from '@/auth/jwt';
 import Resp from '@/common/models/Resp';
 import { Auth } from '@/decorators/auth.decorator';
 import { CurrentUser } from '@/decorators/request-meta.decorator';
 import { Tag } from '@/decorators/tag.decorator';
-import { RecordWatchHistoryDto } from './dto';
+import {
+  QueryCollectionPageDto,
+  QueryWatchHistoryPageDto,
+  RecordWatchHistoryDto,
+} from './dto';
 import { WatchService } from './watch.service';
 
 @Auth()
@@ -16,8 +30,13 @@ export class WatchController {
   @Get('history')
   async listHistory(
     @CurrentUser() user: AuthTokenPayload,
-  ): Promise<Resp<Record<string, any>[]>> {
-    const result = await this.watchService.listHistory(user.id);
+    @Query() query: QueryWatchHistoryPageDto,
+  ): Promise<Resp<PaginatedResult<Record<string, any>>>> {
+    const result = await this.watchService.listHistory(
+      user.id,
+      query.page,
+      query.size,
+    );
     return Resp.success(result);
   }
 
@@ -39,11 +58,21 @@ export class WatchController {
     return Resp.success(result);
   }
 
+  @Delete('history/:historyId')
+  async removeHistory(
+    @CurrentUser() user: AuthTokenPayload,
+    @Param('historyId') historyId: string,
+  ): Promise<Resp<void>> {
+    await this.watchService.removeHistory(user.id, historyId);
+    return Resp.success();
+  }
+
   @Get('collections')
   async listCollections(
     @CurrentUser() user: AuthTokenPayload,
-  ): Promise<Resp<Record<string, any>[]>> {
-    const result = await this.watchService.listCollections(user.id);
+    @Query() query: QueryCollectionPageDto,
+  ): Promise<Resp<PaginatedResult<Record<string, any>>>> {
+    const result = await this.watchService.listCollections(user.id, query);
     return Resp.success(result);
   }
 

@@ -31,7 +31,10 @@ function upsertCollectionItem(
   items: WatchCollectionItem[],
   nextItem: WatchCollectionItem,
 ) {
-  return [nextItem, ...items.filter((item) => item.cine_id !== nextItem.cine_id)];
+  return [
+    nextItem,
+    ...items.filter((item) => item.cine_id !== nextItem.cine_id),
+  ];
 }
 
 export const useCollectionStore = create<CollectionState>()((set, get) => ({
@@ -49,8 +52,9 @@ export const useCollectionStore = create<CollectionState>()((set, get) => ({
 
     try {
       const resp = await fetchCollections();
+      const data = resp.getData();
       set({
-        items: resp.getData() || [],
+        items: data?.list || [],
         loaded: true,
         loading: false,
         error: "",
@@ -60,8 +64,7 @@ export const useCollectionStore = create<CollectionState>()((set, get) => ({
         items: [],
         loaded: true,
         loading: false,
-        error:
-          (error as { message?: string })?.message || "收藏列表加载失败",
+        error: (error as { message?: string })?.message || "收藏列表加载失败",
       });
     }
   },
@@ -94,13 +97,20 @@ export const useCollectionStore = create<CollectionState>()((set, get) => ({
         items: item ? upsertCollectionItem(state.items, item) : state.items,
         loaded: true,
         error: "",
-        pendingCineIds: mergePendingCineIds(state.pendingCineIds, cineId, false),
+        pendingCineIds: mergePendingCineIds(
+          state.pendingCineIds,
+          cineId,
+          false,
+        ),
       }));
     } catch (error) {
       set((state) => ({
-        error:
-          (error as { message?: string })?.message || "收藏失败",
-        pendingCineIds: mergePendingCineIds(state.pendingCineIds, cineId, false),
+        error: (error as { message?: string })?.message || "收藏失败",
+        pendingCineIds: mergePendingCineIds(
+          state.pendingCineIds,
+          cineId,
+          false,
+        ),
       }));
       throw error;
     }
@@ -117,13 +127,20 @@ export const useCollectionStore = create<CollectionState>()((set, get) => ({
         items: state.items.filter((item) => item.cine_id !== cineId),
         loaded: true,
         error: "",
-        pendingCineIds: mergePendingCineIds(state.pendingCineIds, cineId, false),
+        pendingCineIds: mergePendingCineIds(
+          state.pendingCineIds,
+          cineId,
+          false,
+        ),
       }));
     } catch (error) {
       set((state) => ({
-        error:
-          (error as { message?: string })?.message || "取消收藏失败",
-        pendingCineIds: mergePendingCineIds(state.pendingCineIds, cineId, false),
+        error: (error as { message?: string })?.message || "取消收藏失败",
+        pendingCineIds: mergePendingCineIds(
+          state.pendingCineIds,
+          cineId,
+          false,
+        ),
       }));
       throw error;
     }

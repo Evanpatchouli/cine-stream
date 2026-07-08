@@ -5,13 +5,14 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { PaginatedResult } from '@cine-stream/common';
 import {
   Cine,
   CineDocument,
   EpisodeVideo,
   EpisodeVideoDocument,
 } from '../cine-module/cine.schema';
-import { RecordWatchHistoryDto } from './dto';
+import { QueryCollectionPageDto, RecordWatchHistoryDto } from './dto';
 import {
   CineCollection,
   CineCollectionDocument,
@@ -33,15 +34,31 @@ export class WatchService {
     private readonly episodeModel: Model<EpisodeVideoDocument>,
   ) {}
 
-  async listHistory(userId: string): Promise<Record<string, any>[]> {
+  async listHistory(
+    userId: string,
+    pageInput?: number,
+    sizeInput?: number,
+  ): Promise<PaginatedResult<Record<string, any>>> {
     const userObjectId = this.toObjectId(userId, '用户 id 无效');
-    const histories = await this.historyModel
-      .find({ user_id: userObjectId })
-      .sort({ last_watched_at: -1 })
-      .limit(50)
-      .exec();
+    const { page, size } = this.resolvePageParams(pageInput, sizeInput, 20, 50);
+    const filter = { user_id: userObjectId };
+    const [histories, total] = await Promise.all([
+      this.historyModel
+        .find(filter)
+        .sort({ last_watched_at: -1 })
+        .skip((page - 1) * size)
+        .limit(size)
+        .exec(),
+      this.historyModel.countDocuments(filter).exec(),
+    ]);
 
-    return this.hydrateWatchItems(histories);
+    return {
+      list: await this.hydrateWatchItems(histories),
+      total,
+      page,
+      size,
+      totalPages: Math.ceil(total / size),
+    };
   }
 
   async listHistoryByCine(
@@ -108,15 +125,59 @@ export class WatchService {
     return result;
   }
 
-  async listCollections(userId: string): Promise<Record<string, any>[]> {
+  async removeHistory(userId: string, historyId: string): Promise<void> {
     const userObjectId = this.toObjectId(userId, '用户 id 无效');
-    const collections = await this.collectionModel
-      .find({ user_id: userObjectId })
-      .sort({ created_at: -1 })
-      .limit(100)
+    const historyObjectId = this.toObjectId(historyId, '观看记录 id 无效');
+    await this.historyModel
+      .deleteOne({ _id: historyObjectId, user_id: userObjectId })
       .exec();
+  }
 
-    return this.hydrateCollectionItems(collections);
+  async listCollections(
+    userId: string,
+    query: QueryCollectionPageDto = {},
+  ): Promise<PaginatedResult<Record<string, any>>> {
+    const userObjectId = this.toObjectId(userId, '用户 id 无效');
+    const { page, size } = this.resolvePageParams(
+      query.page,
+      query.size,
+      100,
+      100,
+    );
+    const cineIds = await this.resolveCollectionCineIds(userObjectId, query);
+
+    if (cineIds && cineIds.length === 0) {
+      return {
+        list: [],
+        total: 0,
+        page,
+        size,
+        totalPages: 0,
+      };
+    }
+
+    const filter: Record<string, any> = { user_id: userObjectId };
+    if (cineIds) {
+      filter.cine_id = { $in: cineIds };
+    }
+
+    const [collections, total] = await Promise.all([
+      this.collectionModel
+        .find(filter)
+        .sort({ created_at: -1 })
+        .skip((page - 1) * size)
+        .limit(size)
+        .exec(),
+      this.collectionModel.countDocuments(filter).exec(),
+    ]);
+
+    return {
+      list: await this.hydrateCollectionItems(collections),
+      total,
+      page,
+      size,
+      totalPages: Math.ceil(total / size),
+    };
   }
 
   async addCollection(
@@ -170,7 +231,9 @@ export class WatchService {
   private async hydrateWatchItems(
     histories: WatchHistoryDocument[],
   ): Promise<Record<string, any>[]> {
-    const cineMap = await this.getCineMap(histories.map((item) => item.cine_id));
+    const cineMap = await this.getCineMap(
+      histories.map((item) => item.cine_id),
+    );
     const episodeMap = await this.getEpisodeMap(
       histories
         .map((item) => item.episode_id)
@@ -215,6 +278,54 @@ export class WatchService {
     });
   }
 
+  private async resolveCollectionCineIds(
+    userObjectId: Types.ObjectId,
+    query: QueryCollectionPageDto,
+  ): Promise<Types.ObjectId[] | null> {
+    const filters: Array<Set<string>> = [];
+    const cineFilter: Record<string, any> = {};
+    const genre = query.genre?.trim();
+
+    if (genre) {
+      cineFilter.genre = genre;
+    }
+
+    if (query.status === 'downloaded') {
+      cineFilter.badge = '已下载';
+    }
+
+    if (Object.keys(cineFilter).length) {
+      const cines = await this.cineModel.find(cineFilter, { _id: 1 }).exec();
+      filters.push(new Set(cines.map((cine) => cine.id)));
+    }
+
+    if (query.status === 'watching') {
+      const histories = await this.historyModel
+        .find(
+          {
+            user_id: userObjectId,
+            progress: { $gt: 0, $lt: 100 },
+          },
+          { cine_id: 1 },
+        )
+        .exec();
+      filters.push(
+        new Set(histories.map((history) => history.cine_id.toString())),
+      );
+    }
+
+    if (!filters.length) {
+      return null;
+    }
+
+    const first = filters[0]!;
+    const rest = filters.slice(1);
+    const matchedIds = [...first].filter((id) =>
+      rest.every((filter) => filter.has(id)),
+    );
+    return matchedIds.map((id) => Types.ObjectId.createFromHexString(id));
+  }
+
   private async getCineMap(ids: Types.ObjectId[]) {
     const uniqueIds = this.uniqueIds(ids);
     const cines = uniqueIds.length
@@ -234,6 +345,20 @@ export class WatchService {
   private uniqueIds(ids: Types.ObjectId[]): Types.ObjectId[] {
     const map = new Map(ids.map((id) => [id.toString(), id]));
     return [...map.values()];
+  }
+
+  private resolvePageParams(
+    pageInput: number | undefined,
+    sizeInput: number | undefined,
+    defaultSize: number,
+    maxSize: number,
+  ) {
+    const page = Math.max(1, Math.floor(Number(pageInput) || 1));
+    const size = Math.min(
+      maxSize,
+      Math.max(1, Math.floor(Number(sizeInput) || defaultSize)),
+    );
+    return { page, size };
   }
 
   private async assertCine(cineId: Types.ObjectId): Promise<void> {

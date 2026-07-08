@@ -33,7 +33,13 @@ export default class Resp<T = unknown> {
     size: number,
     total: number,
   ) {
-    this.data = { list, page, size, total } as T;
+    this.data = {
+      list,
+      page,
+      size,
+      total,
+      totalPages: Math.ceil(total / size),
+    } as T;
   }
 
   public static success<T>(data?: T): Resp<T> {
