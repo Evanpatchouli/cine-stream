@@ -2,6 +2,21 @@
 
 ## 进行中
 
+- 2026-07-08：客户端设置与影视搜索后端化
+  - 目标：把影厅搜索、个人资料、头像编辑、播放偏好和侧边栏设置入口补成前后端真实闭环。
+  - 范围：
+    - 后端 `GET /api/cines?keyword=` 关键词筛选
+    - 后端当前用户资料、头像、播放偏好读写接口
+    - 客户端设置页、个人空间入口、播放页偏好读取
+  - 非目标：
+    - 不实现订阅与账单
+    - 不引入新的本地头像存储，继续复用现有 OSS 图片上传能力
+  - 当前进度：
+    - 已完成后端 keyword 筛选，覆盖影视字段和剧集名称/简介
+    - 已完成 `/api/user/profile`、`/api/user/avatar`、`/api/user/playback-preferences` 读写能力
+    - 已新增客户端 `/settings` 页面并接入个人资料、头像上传、播放偏好保存
+    - 已通过 server build、client `tsc -b`、client `vite build`
+
 - 2026-07-08：客户端 P0 UI backlog 收口
   - 目标：完成 `.agents/client-ui-backlog.md` 中 P0 级待办，消除影厅搜索、登录辅助操作、个人空间设置入口的主要假交互。
   - 范围：

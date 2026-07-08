@@ -2,6 +2,7 @@
 
 ## 当前状态
 
+- 2026-07-08：客户端设置与影视搜索已补成真实前后端闭环。`GET /api/cines` 支持 `keyword`，会匹配影视字段和剧集名称/简介；用户资料支持更新昵称和邮箱；头像编辑复用 OSS 图片上传写入 `user.avatar`；播放偏好保存到 `user.playback_preferences`，客户端设置页和播放页都会读取。
 - 2026-07-08：客户端 P0 UI backlog 已完成。影厅搜索框已接入本地搜索，支持输入过滤、提交、清空和空状态；登录页已补齐密码显示/隐藏、记住手机号、忘记密码提示，并修复登录失败误跳转；个人空间和侧边栏设置入口已改为明确“暂未开放”说明与提示，不再静默无行为。
 - 2026-06-26：阶段 2A HLS 已完成。后端已支持单集手动生成/删除 HLS：`POST /api/admin/cines/episodes/:episodeId/hls/build`、`DELETE /api/admin/cines/episodes/:episodeId/hls`；公开播放地址为 `/media/hls/:episodeId/master.m3u8` 和 `/media/hls/:episodeId/:profile/:fileName`。
 - 2026-06-26：HLS 生成接口已改为异步后台任务。`POST /api/admin/cines/episodes/:episodeId/hls/build` 现在返回 `202 Accepted`，只负责校验并把任务加入基于 Redis + BullMQ 的串行 HLS 队列；真正的 ffmpeg 转码会在请求返回后执行。
@@ -80,6 +81,9 @@
 
 ## 验证结果
 
+- 本轮 `node scripts/build.js`（server）通过。
+- 本轮 `client/node_modules/.bin/tsc.CMD -b` 通过。
+- 本轮 `client/node_modules/.bin/vite.CMD build` 通过；仍有既有 chunk size warning，不影响产物。
 - 本轮 `git diff --check` 通过；触碰文件均检查为 UTF-8 无 BOM。
 - 本轮 `client/node_modules/.bin/tsc.CMD -b` 通过。
 - 本轮 `client/node_modules/.bin/vite.CMD build` 通过；仍有既有 chunk size warning，不影响产物。
@@ -123,7 +127,9 @@
 
 ## 注意事项
 
-- 客户端公开 `GET /api/cines` 当前没有 keyword 查询参数，本轮影厅搜索按本地过滤实现；如果后续后端增加搜索接口，可把 `useCineStore.search` 切换为远程查询或混合查询。
+- 头像上传依赖现有 `ALI_OSS_*` 配置；如果本地未配置 OSS，头像上传接口会明确返回“OSS 上传服务未配置”，资料和播放偏好不受影响。
+- 当前前端只开放用户自行编辑昵称和邮箱，手机号仍保持只读，避免缺少短信验证时产生安全语义问题。
+- 客户端公开 `GET /api/cines` 现已支持 keyword 查询；`useCineStore.search` 仍保留为本地过滤工具，当前影厅页提交搜索时走远程查询。
 - 内置 Browser 在当前环境阻止通过脚本写入测试登录态，因此登录后页面的自动化交互验证需要真实可用账号、后端联调环境，或另行接入可设置 storage state 的测试流程。
 - 本轮已完成阶段 2B：默认 HLS 可按源视频分辨率生成自适应档位集；但仍未实现批量转码、失败重试，也尚未在上海 Nginx 上接缓存。
 - 客户端当前没有现成的自动化 UI 测试基建，本轮播放页 loading / 移动端 seek 修复主要通过代码审阅和 `client build` 验证，尚未补浏览器级自动化回归。
