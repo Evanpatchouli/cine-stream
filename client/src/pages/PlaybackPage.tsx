@@ -9,7 +9,6 @@ import BookmarkAddedRoundedIcon from "@mui/icons-material/BookmarkAddedRounded";
 import ScreenRotationRoundedIcon from "@mui/icons-material/ScreenRotationRounded";
 import FullscreenRoundedIcon from "@mui/icons-material/FullscreenRounded";
 import FullscreenExitRoundedIcon from "@mui/icons-material/FullscreenExitRounded";
-import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import VolumeUpRoundedIcon from "@mui/icons-material/VolumeUpRounded";
 import VolumeOffRoundedIcon from "@mui/icons-material/VolumeOffRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
@@ -202,7 +201,7 @@ export function PlaybackPage() {
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [seekPreviewTime, setSeekPreviewTime] = useState<number | null>(null);
   const [resumeReadyVersion, setResumeReadyVersion] = useState(0);
-  const [collectionSnackbarOpen, setCollectionSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
   const [episodeHistoryItems, setEpisodeHistoryItems] = useState<
     WatchHistoryItem[]
   >([]);
@@ -313,6 +312,7 @@ export function PlaybackPage() {
   const collectionButtonDisabled = !collectionsLoaded || collectionPending;
   const displayedCurrentTime =
     seekPreviewTime === null ? currentTime : seekPreviewTime;
+  const seasonLabel = cine?.season || "第 1 季";
 
   const syncVideoBufferingState = (video: HTMLVideoElement | null) => {
     if (!video || isScrubbingRef.current) {
@@ -664,7 +664,7 @@ export function PlaybackPage() {
       }
 
       await addToCollection(cineId);
-      setCollectionSnackbarOpen(true);
+      setSnackbarMessage("收藏成功");
     } catch {
       return;
     }
@@ -856,6 +856,15 @@ export function PlaybackPage() {
       | undefined;
 
     await orientation?.lock?.("landscape").catch(() => undefined);
+  };
+
+  const enterTheaterView = () => {
+    if (!videoUrl) {
+      setSnackbarMessage("当前剧集暂无可播放视频");
+      return;
+    }
+
+    void toggleTheaterFullscreen();
   };
 
   const togglePlay = async () => {
@@ -1104,8 +1113,8 @@ export function PlaybackPage() {
           <>
             <img src={posterUrl} alt={cine.name} className="absolute inset-0 h-full w-full object-cover opacity-80" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md">
-                <PlayArrowRoundedIcon sx={{ fontSize: 36 }} />
+              <div className="rounded-full border border-white/20 bg-black/55 px-4 py-2 text-sm font-semibold text-white backdrop-blur-md">
+                暂无可播放视频
               </div>
             </div>
           </>
@@ -1253,7 +1262,7 @@ export function PlaybackPage() {
             <div className="mt-2 flex items-center gap-2 text-xs font-medium text-on-surface-variant">
               <span>{cine.year || "2024"}</span>
               <span className="h-1 w-1 rounded-full bg-outline-variant" />
-              <span>{cine.season || "第 1 季"}</span>
+              <span>{seasonLabel}</span>
               <span className="h-1 w-1 rounded-full bg-outline-variant" />
               <span className="rounded border border-outline-variant px-1.5 py-0.5 text-[10px]">
                 {cine.rating || "16+"}
@@ -1286,8 +1295,9 @@ export function PlaybackPage() {
         </p>
 
         <button
+          type="button"
           className="mb-section-gap flex w-full items-center justify-center gap-2 rounded-lg bg-primary/10 py-3 font-semibold text-primary"
-          onClick={toggleTheaterFullscreen}
+          onClick={enterTheaterView}
         >
           <ScreenRotationRoundedIcon />
           切换到影院视图
@@ -1321,9 +1331,10 @@ export function PlaybackPage() {
         <section className="mb-section-gap">
           <div className="mb-4 flex items-center justify-between">
             <Typography variant="h3">剧集</Typography>
-            <button className="flex items-center font-semibold text-primary">
-              第 1 季 <ExpandMoreRoundedIcon sx={{ fontSize: 18 }} />
-            </button>
+            <div className="flex flex-col items-end leading-tight" aria-label={`${seasonLabel}，暂不支持多季切换`}>
+              <span className="text-sm font-semibold text-on-surface">{seasonLabel}</span>
+              <span className="mt-0.5 text-[11px] font-medium text-on-surface-variant">暂无多季切换</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -1422,16 +1433,16 @@ export function PlaybackPage() {
       </div>
 
       <Snackbar
-        open={collectionSnackbarOpen}
+        open={Boolean(snackbarMessage)}
         autoHideDuration={3000}
         onClose={(_, reason) => {
           if (reason === "clickaway") {
             return;
           }
 
-          setCollectionSnackbarOpen(false);
+          setSnackbarMessage("");
         }}
-        message="收藏成功"
+        message={snackbarMessage}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         sx={{
           bottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",

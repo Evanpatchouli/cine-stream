@@ -2,6 +2,7 @@
 
 ## 当前状态
 
+- 2026-07-08：客户端 P2 UI backlog 已完成。播放页剧季入口不再伪装为可点击下拉，改为当前季说明和“暂无多季切换”；当前剧集没有视频资源时，播放器区域显示“暂无可播放视频”，“切换到影院视图”会给 Snackbar 提示而不是进入空播放器。影厅页分类 Chip 已接入本地类型筛选，隐藏的无行为固定播放按钮已移除。AppShell 顶部搜索图标现在会跳转影厅并聚焦搜索框，避免在影厅页点击无反馈。
 - 2026-07-08：客户端 P1 UI backlog 已完成。收藏页筛选已改为后端支持：`GET /api/watch/collections` 返回统一分页对象 `{ list, page, size, total, totalPages }`，并支持 `genre` 与 `status=downloaded|watching` 参数；客户端分类 Chip 和右上角状态菜单会触发真实查询。观看历史已升级分页：`GET /api/watch/history?page=&size=` 返回同一分页结构，历史页“加载更多”会追加下一页；三点菜单已接入 `DELETE /api/watch/history/:historyId`，按当前用户删除单条观看记录。AppShell 设置入口已确认跳转真实 `/settings` 页面。
 - 2026-07-08：客户端设置与影视搜索已补成真实前后端闭环。`GET /api/cines` 支持 `keyword`，会匹配影视字段和剧集名称/简介；用户资料支持更新昵称和邮箱；头像编辑复用 OSS 图片上传写入 `user.avatar`；播放偏好保存到 `user.playback_preferences`，客户端设置页和播放页都会读取。
 - 2026-07-08：客户端 P0 UI backlog 已完成。影厅搜索框已接入本地搜索，支持输入过滤、提交、清空和空状态；登录页已补齐密码显示/隐藏、记住手机号、忘记密码提示，并修复登录失败误跳转；个人空间和侧边栏设置入口已改为明确“暂未开放”说明与提示，不再静默无行为。
@@ -82,6 +83,9 @@
 
 ## 验证结果
 
+- 本轮 `client/node_modules/.bin/tsc.CMD -b` 通过。
+- 本轮 `client/node_modules/.bin/vite.CMD build` 通过；仍有既有 chunk size warning，不影响产物。
+- 本轮 `git diff --check` 通过；触碰文件均检查为 UTF-8 无 BOM。
 - 本轮 `client/node_modules/.bin/tsc.CMD -b` 通过。
 - 本轮 `client/node_modules/.bin/vite.CMD build` 通过；仍有既有 chunk size warning，不影响产物。
 - 本轮 `server/node_modules/.bin/nest.CMD build` 通过。

@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Box, Chip, IconButton, InputBase, Typography } from "@mui/material";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
 import { AppShell } from "@/components/AppShell";
 import { fetchWatchHistory } from "@/api/watch.api";
 import { MEDIA_PLACEHOLDERS } from "@/constants";
@@ -16,6 +15,8 @@ import {
   resolveHistoryProgress,
 } from "@/utils/watchProgress";
 import type { Cine, WatchHistoryItem } from "@/types";
+
+const GENRE_FILTERS = ["全部", "剧情", "惊悚", "喜剧", "科幻", "爱情"];
 
 function PosterCard({ cine }: { cine: Cine }) {
   const navigate = useNavigate();
@@ -87,13 +88,22 @@ export function HallPage() {
   const loading = useCineStore((state) => state.loading);
   const error = useCineStore((state) => state.error);
   const loadCines = useCineStore((state) => state.load);
+  const location = useLocation();
   const navigate = useNavigate();
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [searchText, setSearchText] = useState("");
   const [submittedKeyword, setSubmittedKeyword] = useState("");
+  const [activeGenre, setActiveGenre] = useState("");
   const [history, setHistory] = useState<WatchHistoryItem[]>([]);
   const searchKeyword = submittedKeyword.trim();
   const isSearching = Boolean(searchKeyword);
-  const visibleCines = cines;
+  const visibleCines = useMemo(() => {
+    if (!activeGenre) {
+      return cines;
+    }
+
+    return cines.filter((cine) => cine.genre?.includes(activeGenre));
+  }, [activeGenre, cines]);
   const trending = visibleCines.slice(0, 2);
   const featured = visibleCines[0] || null;
   const picked = visibleCines.slice(1, 3);
@@ -111,6 +121,17 @@ export function HallPage() {
       .then((resp) => setHistory(resp.getData()?.list || []))
       .catch(() => setHistory([]));
   }, []);
+
+  useEffect(() => {
+    const focusRequest = (location.state as { focusSearchRequest?: number } | null)
+      ?.focusSearchRequest;
+
+    if (!focusRequest) {
+      return;
+    }
+
+    searchInputRef.current?.focus();
+  }, [location.state]);
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -137,6 +158,7 @@ export function HallPage() {
           <SearchRoundedIcon sx={{ color: "#767683" }} />
         </IconButton>
         <InputBase
+          inputRef={searchInputRef}
           placeholder="搜索剧集、类型、演员..."
           fullWidth
           value={searchText}
@@ -163,17 +185,23 @@ export function HallPage() {
       </Box>
 
       <div className="-mx-container-padding mb-8 flex gap-2 overflow-x-auto px-container-padding hide-scrollbar">
-        {["全部", "剧情", "惊悚", "喜剧", "科幻", "爱情"].map(
-          (label, index) => (
+        {GENRE_FILTERS.map((label) => {
+          const selected =
+            label === "全部" ? !activeGenre : activeGenre === label;
+
+          return (
             <Chip
               key={label}
               label={label}
-              color={index === 0 ? "primary" : "default"}
-              variant={index === 0 ? "filled" : "outlined"}
+              clickable
+              color={selected ? "primary" : "default"}
+              variant={selected ? "filled" : "outlined"}
+              aria-pressed={selected}
+              onClick={() => setActiveGenre(label === "全部" ? "" : label)}
               sx={{ flexShrink: 0, borderColor: "#c6c5d4" }}
             />
-          ),
-        )}
+          );
+        })}
       </div>
 
       {isSearching ? (
@@ -191,7 +219,10 @@ export function HallPage() {
             <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
               {loading
                 ? "正在加载影视..."
-                : error || `没有找到与“${searchKeyword}”相关的影视`}
+                : error ||
+                  `没有找到与“${searchKeyword}”相关的${
+                    activeGenre || "影视"
+                  }`}
             </div>
           )}
         </section>
@@ -209,7 +240,10 @@ export function HallPage() {
               </div>
             ) : (
               <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
-                {loading ? "正在加载影视..." : error || "暂无影视内容"}
+                {loading
+                  ? "正在加载影视..."
+                  : error ||
+                    (activeGenre ? `暂无${activeGenre}内容` : "暂无影视内容")}
               </div>
             )}
           </section>
@@ -287,19 +321,12 @@ export function HallPage() {
               </div>
             ) : (
               <div className="rounded-lg bg-surface-container-low p-5 text-sm text-on-surface-variant">
-                暂无精选内容
+                {activeGenre ? `暂无${activeGenre}精选内容` : "暂无精选内容"}
               </div>
             )}
           </section>
         </>
       )}
-
-      <button
-        className="fixed bottom-5 right-[calc(50%-174px)] hidden h-12 w-12 items-center justify-center rounded-full bg-primary text-white shadow-lg"
-        aria-label="播放"
-      >
-        <PlayArrowRoundedIcon />
-      </button>
     </AppShell>
   );
 }

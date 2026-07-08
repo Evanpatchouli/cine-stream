@@ -84,7 +84,15 @@ export function AppShell({ children, flush = false }: AppShellProps) {
           >
             CineStream
           </Typography>
-          <IconButton onClick={() => navigate("/hall")}>
+          <IconButton
+            aria-label="搜索影视"
+            title="搜索影视"
+            onClick={() =>
+              navigate("/hall", {
+                state: { focusSearchRequest: Date.now() },
+              })
+            }
+          >
             <SearchRoundedIcon sx={{ color: "#454652" }} />
           </IconButton>
         </Toolbar>
