@@ -83,16 +83,14 @@ export function HallPage() {
   const cines = useCineStore((state) => state.cines);
   const loading = useCineStore((state) => state.loading);
   const error = useCineStore((state) => state.error);
-  const searchCines = useCineStore((state) => state.search);
+  const loadCines = useCineStore((state) => state.load);
   const navigate = useNavigate();
   const [searchText, setSearchText] = useState("");
+  const [submittedKeyword, setSubmittedKeyword] = useState("");
   const [history, setHistory] = useState<WatchHistoryItem[]>([]);
-  const searchKeyword = searchText.trim();
+  const searchKeyword = submittedKeyword.trim();
   const isSearching = Boolean(searchKeyword);
-  const visibleCines = useMemo(
-    () => searchCines(searchKeyword),
-    [cines, searchCines, searchKeyword],
-  );
+  const visibleCines = cines;
   const trending = visibleCines.slice(0, 2);
   const featured = visibleCines[0] || null;
   const picked = visibleCines.slice(1, 3);
@@ -112,11 +110,16 @@ export function HallPage() {
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSearchText(searchKeyword);
+    const nextKeyword = searchText.trim();
+    setSearchText(nextKeyword);
+    setSubmittedKeyword(nextKeyword);
+    void loadCines(nextKeyword || undefined);
   };
 
   const handleClearSearch = () => {
     setSearchText("");
+    setSubmittedKeyword("");
+    void loadCines();
   };
 
   return (
@@ -133,7 +136,14 @@ export function HallPage() {
           placeholder="搜索剧集、类型、演员..."
           fullWidth
           value={searchText}
-          onChange={(event) => setSearchText(event.target.value)}
+          onChange={(event) => {
+            const value = event.target.value;
+            setSearchText(value);
+            if (!value.trim() && submittedKeyword) {
+              setSubmittedKeyword("");
+              void loadCines();
+            }
+          }}
           inputProps={{ "aria-label": "搜索影视" }}
           sx={{ color: "#454652", fontSize: 16 }}
         />

@@ -7,7 +7,7 @@ interface CineState {
   loaded: boolean;
   loading: boolean;
   error: string;
-  load: () => Promise<void>;
+  load: (keyword?: string) => Promise<void>;
   byId: (id?: string) => Cine | null;
   search: (keyword?: string) => Cine[];
 }
@@ -40,10 +40,10 @@ export const useCineStore = create<CineState>()((set, get) => ({
   loaded: false,
   loading: false,
   error: "",
-  load: async () => {
+  load: async (keyword) => {
     set({ loading: true, error: "" });
     try {
-      const resp = await fetchCines();
+      const resp = await fetchCines(keyword);
       set({
         cines: resp.getData() || [],
         loaded: true,
