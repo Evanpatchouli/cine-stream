@@ -42,6 +42,7 @@
 ### P1
 
 4. 补齐收藏页筛选入口
+   - 状态：已完成。`GET /api/watch/collections` 已支持统一分页返回，并接入 `genre/status` 后端筛选；客户端分类 Chip 和状态菜单会触发真实查询。
    - 现状：收藏页右上角筛选按钮和分类 Chip 都是静态 UI。
    - 目标：至少支持按分类/状态筛选本地收藏列表；如果后端支持分页或条件查询，再接入后端参数。
    - 关联文件：
@@ -49,6 +50,7 @@
      - [client/src/stores/collections.ts](\client\src\stores\collections.ts)
 
 5. 补齐观看历史的更多操作
+   - 状态：已完成。`GET /api/watch/history` 已升级为统一分页返回，历史页“加载更多”会加载下一页；三点菜单已接入 `DELETE /api/watch/history/:historyId` 删除当前用户记录。
    - 现状：历史页每条记录右侧三点菜单没有行为，“加载更多”按钮也被禁用。
    - 目标：明确菜单能力边界，至少实现删除记录或跳转详情；“加载更多”要么接分页，要么移除。
    - 关联文件：
@@ -56,6 +58,7 @@
      - [client/src/api/watch.api.ts](\client\src\api\watch.api.ts)
 
 6. 补齐 AppShell 中的设置入口
+   - 状态：已完成。侧边栏“设置”已跳转 `/settings`，并已有 `/settings/:section` 页面承接。
    - 现状：侧边栏“设置”项没有跳转或处理逻辑。
    - 目标：跳转到真实设置页，或先隐藏/禁用该入口，避免误导。
    - 关联文件：

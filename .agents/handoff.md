@@ -2,6 +2,7 @@
 
 ## 当前状态
 
+- 2026-07-08：客户端 P1 UI backlog 已完成。收藏页筛选已改为后端支持：`GET /api/watch/collections` 返回统一分页对象 `{ list, page, size, total, totalPages }`，并支持 `genre` 与 `status=downloaded|watching` 参数；客户端分类 Chip 和右上角状态菜单会触发真实查询。观看历史已升级分页：`GET /api/watch/history?page=&size=` 返回同一分页结构，历史页“加载更多”会追加下一页；三点菜单已接入 `DELETE /api/watch/history/:historyId`，按当前用户删除单条观看记录。AppShell 设置入口已确认跳转真实 `/settings` 页面。
 - 2026-07-08：客户端设置与影视搜索已补成真实前后端闭环。`GET /api/cines` 支持 `keyword`，会匹配影视字段和剧集名称/简介；用户资料支持更新昵称和邮箱；头像编辑复用 OSS 图片上传写入 `user.avatar`；播放偏好保存到 `user.playback_preferences`，客户端设置页和播放页都会读取。
 - 2026-07-08：客户端 P0 UI backlog 已完成。影厅搜索框已接入本地搜索，支持输入过滤、提交、清空和空状态；登录页已补齐密码显示/隐藏、记住手机号、忘记密码提示，并修复登录失败误跳转；个人空间和侧边栏设置入口已改为明确“暂未开放”说明与提示，不再静默无行为。
 - 2026-06-26：阶段 2A HLS 已完成。后端已支持单集手动生成/删除 HLS：`POST /api/admin/cines/episodes/:episodeId/hls/build`、`DELETE /api/admin/cines/episodes/:episodeId/hls`；公开播放地址为 `/media/hls/:episodeId/master.m3u8` 和 `/media/hls/:episodeId/:profile/:fileName`。
@@ -81,6 +82,12 @@
 
 ## 验证结果
 
+- 本轮 `client/node_modules/.bin/tsc.CMD -b` 通过。
+- 本轮 `client/node_modules/.bin/vite.CMD build` 通过；仍有既有 chunk size warning，不影响产物。
+- 本轮 `server/node_modules/.bin/nest.CMD build` 通过。
+- 本轮内置 Browser smoke test `http://localhost:5211/#/login` 通过：页面非空、标题为 `CineStream`、无 console warn/error、密码框可输入。因缺少真实登录态，未在浏览器中进入收藏/历史受保护页面做交互验证。
+- 本轮 `server/node_modules/.bin/tsc.CMD -p tsconfig.json --noEmit` 未作为最终验证：会命中既有 `server/src/modules/cine-module/media.controller.spec.ts` 中 `Readable` 与 `ReadStream` 的 spec 类型不匹配；生产 `nest build` 已通过。
+- 本轮 `pnpm --filter @cine-stream/* build` 未进入项目编译阶段：当前非 TTY 环境会被 pnpm 自动依赖检查/ignored-builds 拦截；已改用各包本地 `.bin` 完成等价构建检查。
 - 本轮 `node scripts/build.js`（server）通过。
 - 本轮 `client/node_modules/.bin/tsc.CMD -b` 通过。
 - 本轮 `client/node_modules/.bin/vite.CMD build` 通过；仍有既有 chunk size warning，不影响产物。
@@ -127,6 +134,8 @@
 
 ## 注意事项
 
+- `GET /api/watch/history` 与 `GET /api/watch/collections` 的客户端消费已从数组改为分页对象；新增调用方应读取 `resp.getData()?.list`，不要再直接把 `data` 当数组使用。
+- 所有新分页返回都保持 `{ list, page, size, total, totalPages }`；`Resp.PageData` 也已补 `totalPages`，避免后续 helper 生成不一致结构。
 - 头像上传依赖现有 `ALI_OSS_*` 配置；如果本地未配置 OSS，头像上传接口会明确返回“OSS 上传服务未配置”，资料和播放偏好不受影响。
 - 当前前端只开放用户自行编辑昵称和邮箱，手机号仍保持只读，避免缺少短信验证时产生安全语义问题。
 - 客户端公开 `GET /api/cines` 现已支持 keyword 查询；`useCineStore.search` 仍保留为本地过滤工具，当前影厅页提交搜索时走远程查询。
